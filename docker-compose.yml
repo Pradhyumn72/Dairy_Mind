@@ -1,0 +1,82 @@
+version: '3.8'
+
+services:
+  db:
+    image: mysql:8.0
+    platform: linux/amd64
+    container_name: dairymind_db
+    env_file:
+      - .env
+    volumes:
+      - dairymind_mysql_data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    platform: linux/amd64
+    container_name: dairymind_redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+  web:
+    build: .
+    platform: linux/amd64
+    container_name: dairymind_web
+    command: ./entrypoint.sh
+    env_file:
+      - .env
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+    restart: unless-stopped
+
+  celery_worker:
+    build: .
+    platform: linux/amd64
+    container_name: dairymind_celery_worker
+    command: celery -A dairymind worker -l info
+    env_file:
+      - .env
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - media_volume:/app/media
+    restart: unless-stopped
+
+  celery_beat:
+    build: .
+    platform: linux/amd64
+    container_name: dairymind_celery_beat
+    command: celery -A dairymind beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    env_file:
+      - .env
+    depends_on:
+      - db
+      - redis
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    platform: linux/amd64
+    container_name: dairymind_nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - static_volume:/app/staticfiles:ro
+      - media_volume:/app/media:ro
+    depends_on:
+      - web
+    restart: unless-stopped
+
+volumes:
+  dairymind_mysql_data:
+  static_volume:
+  media_volume:
