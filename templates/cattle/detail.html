@@ -1,0 +1,1115 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Cattle Detail — DairyMind{% endblock %}
+{% block meta_description %}Full history, health timeline, forecast, vet reports and cost summary for a single cattle.{% endblock %}
+{% block nav_cattle %}active{% endblock %}
+{% block page_title %}Cattle Detail{% endblock %}
+
+{% block extra_head %}
+<style>
+  /* ── Header card ────────────────────────────────────────────────────── */
+  .cd-header {
+    background:    var(--dm-white);
+    border-radius: var(--radius-lg);
+    box-shadow:    var(--shadow-sm);
+    border:        1px solid var(--dm-gray-200);
+    padding:       28px;
+    margin-bottom: 24px;
+    display:       flex;
+    align-items:   center;
+    gap:           28px;
+    flex-wrap:     wrap;
+  }
+  .cd-avatar {
+    width:           110px;
+    height:          110px;
+    border-radius:   var(--radius-lg);
+    background:      linear-gradient(135deg, var(--dm-green-100), var(--dm-green-50));
+    border:          2px solid var(--dm-green-200);
+    display:         flex;
+    align-items:     center;
+    justify-content: center;
+    font-size:       3.2rem;
+    flex-shrink:     0;
+    cursor:          pointer;
+    position:        relative;
+    overflow:        hidden;
+  }
+  .cd-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: inherit; }
+  .cd-avatar-edit {
+    position:   absolute;
+    inset:      0;
+    background: rgba(0,0,0,.35);
+    display:    flex;
+    align-items:center;
+    justify-content:center;
+    opacity:    0;
+    transition: opacity .2s;
+    border-radius: inherit;
+    color:      #fff;
+    font-size:  1.2rem;
+  }
+  .cd-avatar:hover .cd-avatar-edit { opacity: 1; }
+
+  .cd-meta { flex: 1; min-width: 200px; }
+  .cd-tag  {
+    font-family:  monospace;
+    font-size:    .85rem;
+    font-weight:  700;
+    color:        var(--dm-green-600);
+    background:   var(--dm-green-50);
+    border:       1px solid var(--dm-green-200);
+    border-radius: 6px;
+    padding:      2px 10px;
+    display:      inline-block;
+    margin-bottom: 6px;
+  }
+  .cd-name {
+    font-family: var(--font-display);
+    font-size:   1.8rem;
+    font-weight: 800;
+    color:       var(--dm-gray-900);
+    margin:      4px 0;
+    line-height: 1.1;
+  }
+  .cd-breed { font-size: .9rem; color: var(--dm-gray-500); margin-bottom: 12px; }
+
+  .cd-stat-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .cd-chip {
+    display:       flex;
+    align-items:   center;
+    gap:           6px;
+    padding:       6px 13px;
+    background:    var(--dm-gray-100);
+    border-radius: var(--radius-xl);
+    font-size:     .8rem;
+    font-weight:   600;
+    color:         var(--dm-gray-700);
+  }
+  .cd-chip .chip-label { font-weight: 400; color: var(--dm-gray-500); }
+
+  .cd-actions { display: flex; gap: 8px; align-items: flex-start; flex-wrap: wrap; }
+
+  /* ── Tabs ───────────────────────────────────────────────────────────── */
+  .cd-tabs {
+    display:         flex;
+    gap:             4px;
+    border-bottom:   2px solid var(--dm-gray-200);
+    margin-bottom:   24px;
+    overflow-x:      auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .cd-tabs::-webkit-scrollbar { display: none; }
+  .cd-tab {
+    padding:         10px 18px;
+    font-size:       .875rem;
+    font-weight:     600;
+    color:           var(--dm-gray-500);
+    border-bottom:   3px solid transparent;
+    margin-bottom:   -2px;
+    cursor:          pointer;
+    white-space:     nowrap;
+    transition:      color .18s, border-color .18s;
+    user-select:     none;
+    text-decoration: none;
+    display:         flex;
+    align-items:     center;
+    gap:             6px;
+  }
+  .cd-tab:hover { color: var(--dm-green-600); }
+  .cd-tab.active {
+    color:        var(--dm-green-700);
+    border-color: var(--dm-green-600);
+  }
+
+  .cd-panel { display: none; }
+  .cd-panel.active { display: block; }
+
+  /* ── Chart wrappers ─────────────────────────────────────────────────── */
+  .cd-chart-wrap { position: relative; height: 260px; }
+
+  /* ── Timeline ───────────────────────────────────────────────────────── */
+  .cd-timeline { position: relative; padding-left: 24px; }
+  .cd-timeline::before {
+    content:    '';
+    position:   absolute;
+    left:       7px;
+    top:        0; bottom: 0;
+    width:      2px;
+    background: var(--dm-gray-200);
+  }
+  .cd-tl-item {
+    position:     relative;
+    margin-bottom: 18px;
+  }
+  .cd-tl-dot {
+    position:     absolute;
+    left:         -20px;
+    top:          4px;
+    width:        14px;
+    height:       14px;
+    border-radius: 50%;
+    border:       2px solid var(--dm-white);
+    box-shadow:   0 0 0 2px currentColor;
+    background:   currentColor;
+  }
+  .cd-tl-dot--alert-high   { color: var(--dm-red); }
+  .cd-tl-dot--alert-medium { color: var(--dm-amber); }
+  .cd-tl-dot--alert-low    { color: var(--dm-blue); }
+  .cd-tl-dot--record       { color: var(--dm-green-500); }
+
+  .cd-tl-date {
+    font-size:   .72rem;
+    font-weight: 600;
+    color:       var(--dm-gray-500);
+    letter-spacing: .4px;
+    margin-bottom: 3px;
+  }
+  .cd-tl-body {
+    background:    var(--dm-white);
+    border:        1px solid var(--dm-gray-200);
+    border-radius: var(--radius-md);
+    padding:       12px 16px;
+    font-size:     .87rem;
+    box-shadow:    var(--shadow-sm);
+  }
+  .cd-tl-title { font-weight: 700; margin-bottom: 4px; }
+
+  /* ── Vet report card ────────────────────────────────────────────────── */
+  .vr-card {
+    border:        1px solid var(--dm-gray-200);
+    border-radius: var(--radius-md);
+    padding:       16px 18px;
+    background:    var(--dm-white);
+    margin-bottom: 12px;
+    display:       flex;
+    align-items:   flex-start;
+    gap:           14px;
+    transition:    box-shadow .18s;
+  }
+  .vr-card:hover { box-shadow: var(--shadow-md); }
+  .vr-icon {
+    width:           44px;
+    height:          44px;
+    border-radius:   var(--radius-md);
+    background:      var(--dm-blue-light);
+    display:         flex;
+    align-items:     center;
+    justify-content: center;
+    font-size:       1.3rem;
+    flex-shrink:     0;
+  }
+  .vr-status-pending  { color: var(--dm-amber);       }
+  .vr-status-ready    { color: var(--dm-green-600);   }
+  .vr-status-failed   { color: var(--dm-red);         }
+
+  /* ── Skeleton helpers ───────────────────────────────────────────────── */
+  .sk-h { border-radius: 6px; }
+  .sk-line { border-radius: 4px; margin-bottom: 8px; }
+
+  /* ── Summary stat strip ─────────────────────────────────────────────── */
+  .cd-summary-strip {
+    display:   grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap:       12px;
+    margin-bottom: 20px;
+  }
+  .cd-summary-item {
+    background:    var(--dm-gray-50);
+    border:        1px solid var(--dm-gray-200);
+    border-radius: var(--radius-md);
+    padding:       14px;
+    text-align:    center;
+  }
+  .cd-summary-item .sv { font-family: var(--font-display); font-size: 1.4rem; font-weight: 800; }
+  .cd-summary-item .sl { font-size: .72rem; font-weight: 600; color: var(--dm-gray-500); text-transform: uppercase; letter-spacing: .6px; margin-top: 2px; }
+
+  @media (max-width:575px) {
+    .cd-header { flex-direction: column; align-items: flex-start; }
+    .cd-chart-wrap { height: 200px; }
+    .cd-tab { font-size: .8rem; padding: 8px 12px; }
+  }
+</style>
+{% endblock %}
+
+
+{% block content %}
+
+{# ── Breadcrumb ──────────────────────────────────────────────────────────── #}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb" style="font-size:.83rem">
+    <li class="breadcrumb-item"><a href="/cattle/" class="text-dm-green">Cattle Registry</a></li>
+    <li class="breadcrumb-item active" id="breadcrumbName">Loading…</li>
+  </ol>
+</nav>
+
+{# ── Header card (skeleton + real) ───────────────────────────────────────── #}
+<div class="cd-header" id="cdHeader" aria-label="Cattle profile">
+
+  {# Skeleton state #}
+  <div id="cdHeaderSkeleton" style="width:100%;display:flex;align-items:center;gap:24px;flex-wrap:wrap">
+    <div class="dm-skeleton" style="width:110px;height:110px;border-radius:var(--radius-lg);flex-shrink:0"></div>
+    <div style="flex:1;min-width:180px">
+      <div class="dm-skeleton sk-h mb-2" style="height:14px;width:40%"></div>
+      <div class="dm-skeleton sk-h mb-2" style="height:32px;width:60%"></div>
+      <div class="dm-skeleton sk-h mb-3" style="height:14px;width:30%"></div>
+      <div class="d-flex gap-2">
+        <div class="dm-skeleton sk-h" style="height:28px;width:90px;border-radius:20px"></div>
+        <div class="dm-skeleton sk-h" style="height:28px;width:80px;border-radius:20px"></div>
+        <div class="dm-skeleton sk-h" style="height:28px;width:100px;border-radius:20px"></div>
+      </div>
+    </div>
+  </div>
+
+  {# Real content #}
+  <div id="cdHeaderReal" style="display:none;width:100%;display:none;align-items:center;gap:24px;flex-wrap:wrap">
+    {# Avatar / photo placeholder #}
+    <div class="cd-avatar" id="cdAvatar" title="Photo placeholder" aria-label="Cattle photo">
+      🐄
+      <div class="cd-avatar-edit"><i class="bi bi-camera-fill" aria-hidden="true"></i></div>
+    </div>
+
+    {# Meta #}
+    <div class="cd-meta">
+      <div class="cd-tag" id="cdTagNumber">—</div>
+      <div class="cd-name" id="cdName">—</div>
+      <div class="cd-breed" id="cdBreed">—</div>
+      <div class="cd-stat-chips" id="cdChips"></div>
+    </div>
+
+    {# Actions #}
+    <div class="cd-actions">
+      <button class="dm-btn dm-btn--outline dm-btn--sm" id="btnEditCattle">
+        <i class="bi bi-pencil-fill" aria-hidden="true"></i> Edit
+      </button>
+      <button class="dm-btn dm-btn--outline dm-btn--sm" id="btnDeactivate" style="color:var(--dm-red);border-color:var(--dm-red)">
+        <i class="bi bi-slash-circle" aria-hidden="true"></i> Deactivate
+      </button>
+      <a href="/cattle/" class="dm-btn dm-btn--outline dm-btn--sm">
+        <i class="bi bi-arrow-left" aria-hidden="true"></i> Back
+      </a>
+    </div>
+  </div>
+</div>
+
+{# ── Tabs ─────────────────────────────────────────────────────────────────── #}
+<div class="cd-tabs" role="tablist" aria-label="Cattle detail tabs">
+  <button class="cd-tab active" role="tab" data-tab="milk"    aria-selected="true"  id="tab-milk">
+    <i class="bi bi-droplet-fill" aria-hidden="true"></i> Milk History
+  </button>
+  <button class="cd-tab" role="tab" data-tab="health"  aria-selected="false" id="tab-health">
+    <i class="bi bi-heart-pulse-fill" aria-hidden="true"></i> Health Timeline
+  </button>
+  <button class="cd-tab" role="tab" data-tab="forecast" aria-selected="false" id="tab-forecast">
+    <i class="bi bi-graph-up-arrow" aria-hidden="true"></i> Forecast
+  </button>
+  <button class="cd-tab" role="tab" data-tab="vet"     aria-selected="false" id="tab-vet">
+    <i class="bi bi-file-medical-fill" aria-hidden="true"></i> Vet Reports
+  </button>
+  <button class="cd-tab" role="tab" data-tab="cost"    aria-selected="false" id="tab-cost">
+    <i class="bi bi-bar-chart-fill" aria-hidden="true"></i> Cost Summary
+  </button>
+</div>
+
+
+{# ════════════════════════════════════════════════════════════════════════ #}
+{# TAB 1: MILK HISTORY                                                      #}
+{# ════════════════════════════════════════════════════════════════════════ #}
+<div class="cd-panel active" id="panel-milk" role="tabpanel" aria-labelledby="tab-milk">
+
+  {# Summary strip #}
+  <div class="cd-summary-strip" id="milkSummaryStrip">
+    <div class="cd-summary-item">
+      <div class="dm-skeleton sk-h mb-1" style="height:28px;width:70%;margin:auto"></div>
+      <div class="dm-skeleton sk-h" style="height:12px;width:55%;margin:auto"></div>
+    </div>
+    <div class="cd-summary-item">
+      <div class="dm-skeleton sk-h mb-1" style="height:28px;width:70%;margin:auto"></div>
+      <div class="dm-skeleton sk-h" style="height:12px;width:55%;margin:auto"></div>
+    </div>
+    <div class="cd-summary-item">
+      <div class="dm-skeleton sk-h mb-1" style="height:28px;width:70%;margin:auto"></div>
+      <div class="dm-skeleton sk-h" style="height:12px;width:55%;margin:auto"></div>
+    </div>
+  </div>
+
+  {# Chart #}
+  <div class="dm-card mb-4">
+    <div class="dm-card__header">
+      <h2 class="dm-card__title">
+        <i class="bi bi-activity text-dm-green me-1" aria-hidden="true"></i>
+        Last 30 Days — Daily Milk Production
+      </h2>
+    </div>
+    <div class="dm-card__body">
+      <div class="dm-skeleton sk-h" id="milkChartSk" style="height:260px;border-radius:10px"></div>
+      <div class="cd-chart-wrap" id="milkChartWrap" style="display:none">
+        <canvas id="milkHistoryChart" aria-label="30-day milk production chart" role="img"></canvas>
+      </div>
+    </div>
+  </div>
+
+  {# Logs table #}
+  <div class="dm-card">
+    <div class="dm-card__header">
+      <h2 class="dm-card__title">Recent Milk Logs</h2>
+    </div>
+    <div class="dm-card__body p-0">
+      <div id="milkLogsSk" class="p-3">
+        <div class="dm-skeleton sk-line" style="height:36px"></div>
+        <div class="dm-skeleton sk-line" style="height:36px"></div>
+        <div class="dm-skeleton sk-line" style="height:36px"></div>
+      </div>
+      <div class="dm-table-wrap" style="border:none;box-shadow:none;border-radius:0">
+        <table class="dm-table" id="milkLogsTable" aria-label="Milk logs" style="display:none">
+          <thead>
+            <tr>
+              <th scope="col">Date</th>
+              <th scope="col">Morning (L)</th>
+              <th scope="col">Evening (L)</th>
+              <th scope="col">Total (L)</th>
+            </tr>
+          </thead>
+          <tbody id="milkLogsTbody"></tbody>
+        </table>
+      </div>
+      <div id="milkLogsEmpty" class="text-center py-4 text-muted" style="display:none">
+        <i class="bi bi-droplet me-1"></i> No milk logs recorded in the last 30 days.
+      </div>
+      <div id="milkLogsError" class="dm-alert dm-alert--danger m-3" style="display:none" role="alert">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i> Failed to load milk history.
+      </div>
+    </div>
+  </div>
+</div>
+
+
+{# ════════════════════════════════════════════════════════════════════════ #}
+{# TAB 2: HEALTH TIMELINE                                                   #}
+{# ════════════════════════════════════════════════════════════════════════ #}
+<div class="cd-panel" id="panel-health" role="tabpanel" aria-labelledby="tab-health">
+  <div class="dm-card">
+    <div class="dm-card__header">
+      <h2 class="dm-card__title">
+        <i class="bi bi-shield-exclamation text-danger me-1" aria-hidden="true"></i>
+        Health Timeline
+      </h2>
+      <div class="d-flex gap-2">
+        <select id="healthFilter" class="cl-select" style="font-size:.8rem;padding:5px 10px" aria-label="Filter timeline">
+          <option value="">All events</option>
+          <option value="alert">Alerts only</option>
+          <option value="record">Vet records only</option>
+        </select>
+      </div>
+    </div>
+    <div class="dm-card__body">
+      <div id="healthSk">
+        <div class="dm-skeleton sk-line" style="height:60px;border-radius:8px"></div>
+        <div class="dm-skeleton sk-line" style="height:60px;border-radius:8px"></div>
+        <div class="dm-skeleton sk-line" style="height:60px;border-radius:8px"></div>
+      </div>
+      <div class="cd-timeline" id="healthTimeline" style="display:none" aria-live="polite"></div>
+      <div id="healthEmpty" class="text-center py-5 text-muted" style="display:none">
+        <i class="bi bi-check-circle-fill text-success fs-2 d-block mb-2"></i>
+        No health events recorded.
+      </div>
+      <div id="healthError" class="dm-alert dm-alert--danger" style="display:none" role="alert">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i> Failed to load health timeline.
+      </div>
+    </div>
+  </div>
+</div>
+
+
+{# ════════════════════════════════════════════════════════════════════════ #}
+{# TAB 3: FORECAST                                                          #}
+{# ════════════════════════════════════════════════════════════════════════ #}
+<div class="cd-panel" id="panel-forecast" role="tabpanel" aria-labelledby="tab-forecast">
+  <div class="dm-card">
+    <div class="dm-card__header">
+      <h2 class="dm-card__title">
+        <i class="bi bi-graph-up-arrow text-dm-green me-1" aria-hidden="true"></i>
+        30-Day Production Forecast
+      </h2>
+      <button class="dm-btn dm-btn--outline dm-btn--sm" id="btnRefreshForecast">
+        <i class="bi bi-arrow-clockwise" aria-hidden="true"></i> Refresh
+      </button>
+    </div>
+    <div class="dm-card__body">
+      <div class="dm-skeleton sk-h" id="forecastSk" style="height:280px;border-radius:10px"></div>
+      <div id="forecastContent" style="display:none">
+        <div class="dm-alert dm-alert--info mb-3" id="forecastMeta" style="font-size:.82rem">
+          <i class="bi bi-info-circle-fill me-2"></i>
+          <span id="forecastMetaText">—</span>
+        </div>
+        <div class="cd-chart-wrap" style="height:280px">
+          <canvas id="forecastChart" aria-label="Milk production forecast chart" role="img"></canvas>
+        </div>
+      </div>
+      <div id="forecastError" class="dm-alert dm-alert--warning" style="display:none" role="alert">
+        <i class="bi bi-exclamation-circle-fill me-2"></i>
+        <span id="forecastErrorMsg">Forecast not available.</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+{# ════════════════════════════════════════════════════════════════════════ #}
+{# TAB 4: VET REPORTS                                                       #}
+{# ════════════════════════════════════════════════════════════════════════ #}
+<div class="cd-panel" id="panel-vet" role="tabpanel" aria-labelledby="tab-vet">
+  <div class="dm-card">
+    <div class="dm-card__header">
+      <h2 class="dm-card__title">
+        <i class="bi bi-file-medical-fill" style="color:var(--dm-blue)" aria-hidden="true"></i>
+        &nbsp;Vet Reports
+      </h2>
+      <button class="dm-btn dm-btn--primary dm-btn--sm" id="btnUploadVet"
+              data-bs-toggle="modal" data-bs-target="#uploadVetModal">
+        <i class="bi bi-upload" aria-hidden="true"></i> Upload Report
+      </button>
+    </div>
+    <div class="dm-card__body">
+      <div id="vetSk">
+        <div class="dm-skeleton sk-line" style="height:72px;border-radius:8px"></div>
+        <div class="dm-skeleton sk-line" style="height:72px;border-radius:8px"></div>
+      </div>
+      <div id="vetList" style="display:none" aria-live="polite"></div>
+      <div id="vetEmpty" class="text-center py-5 text-muted" style="display:none">
+        <i class="bi bi-file-earmark-medical fs-2 d-block mb-2"></i>
+        No vet reports uploaded yet.
+      </div>
+      <div id="vetError" class="dm-alert dm-alert--danger" style="display:none" role="alert">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i> Failed to load vet reports.
+      </div>
+    </div>
+  </div>
+</div>
+
+{# Upload Vet Report Modal #}
+<div class="modal fade" id="uploadVetModal" tabindex="-1" aria-labelledby="uploadVetLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg" style="border-radius:var(--radius-lg)">
+      <div class="modal-header" style="background:var(--dm-blue);border-radius:var(--radius-lg) var(--radius-lg) 0 0">
+        <h2 class="modal-title" id="uploadVetLabel" style="color:#fff;font-family:var(--font-display);font-size:1rem;font-weight:700">
+          <i class="bi bi-upload me-2" aria-hidden="true"></i>Upload Vet Report
+        </h2>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form id="uploadVetForm" novalidate>
+        <div class="modal-body p-4">
+          <div class="dm-alert dm-alert--danger mb-3" id="vetUploadError" style="display:none" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+            <span id="vetUploadErrorMsg"></span>
+          </div>
+          <div class="dm-alert dm-alert--success mb-3" id="vetUploadSuccess" style="display:none" role="status">
+            <i class="bi bi-check-circle-fill me-2"></i> Report uploaded! AI summarisation is in progress.
+          </div>
+          <label class="modal-label d-block mb-1" for="vetFile">
+            File <span class="text-danger">*</span>
+            <small class="text-muted fw-400">(PDF or TXT, max 10 MB)</small>
+          </label>
+          <input type="file" id="vetFile" name="file" accept=".pdf,.txt"
+                 class="form-control" required style="font-size:.86rem">
+        </div>
+        <div class="modal-footer border-0 px-4 pb-4 pt-0">
+          <button type="button" class="dm-btn dm-btn--outline" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="dm-btn dm-btn--primary" id="vetUploadSubmit">
+            <span id="vetUploadSpinner" class="spinner-border spinner-border-sm me-1" style="display:none" aria-hidden="true"></span>
+            Upload & Analyse
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+
+{# ════════════════════════════════════════════════════════════════════════ #}
+{# TAB 5: COST SUMMARY                                                      #}
+{# ════════════════════════════════════════════════════════════════════════ #}
+<div class="cd-panel" id="panel-cost" role="tabpanel" aria-labelledby="tab-cost">
+  <div class="dm-card">
+    <div class="dm-card__header">
+      <h2 class="dm-card__title">
+        <i class="bi bi-currency-rupee text-dm-green me-1" aria-hidden="true"></i>
+        Monthly Cost vs Revenue
+      </h2>
+      <div class="d-flex gap-2 align-items-center">
+        <select id="costMonthPicker" class="cl-select" aria-label="Month" style="font-size:.82rem;padding:5px 10px"></select>
+        <select id="costYearPicker"  class="cl-select" aria-label="Year"  style="font-size:.82rem;padding:5px 10px"></select>
+        <button class="dm-btn dm-btn--primary dm-btn--sm" id="btnLoadCost" type="button">Go</button>
+      </div>
+    </div>
+    <div class="dm-card__body">
+      <div class="dm-skeleton sk-h" id="costSk" style="height:260px;border-radius:10px"></div>
+      <div id="costContent" style="display:none">
+        <div class="cd-summary-strip mb-4" id="costSummaryStrip"></div>
+        <div class="cd-chart-wrap" style="height:260px">
+          <canvas id="costChart" aria-label="Monthly cost vs revenue bar chart" role="img"></canvas>
+        </div>
+      </div>
+      <div id="costError" class="dm-alert dm-alert--warning" style="display:none" role="alert">
+        <i class="bi bi-exclamation-circle-fill me-2"></i>
+        <span id="costErrorMsg">Cost data not available.</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+
+{% block extra_scripts %}
+<script>
+/* ════════════════════════════════════════════════════════════════════════════ */
+/* cattle/detail.html — JS                                                     */
+/* ════════════════════════════════════════════════════════════════════════════ */
+'use strict';
+
+/* ── Extract cattle ID from URL (/cattle/42/ → 42) ────────────────────────── */
+const CATTLE_ID = (function () {
+  const parts = window.location.pathname.replace(/\/$/, '').split('/');
+  return parseInt(parts[parts.length - 1], 10);
+}());
+
+/* ── Shared helpers ─────────────────────────────────────────────────────────── */
+function getCsrf() {
+  const m = document.cookie.match(/csrftoken=([^;]+)/); return m ? m[1] : '';
+}
+async function apiFetch(url, opts = {}) {
+  const res = await fetch(url, {
+    credentials: 'same-origin',
+    headers: {
+      Accept: 'application/json',
+      'X-Requested-With': 'XMLHttpRequest',
+      'X-CSRFToken': getCsrf(),
+      ...(opts.headers || {}),
+    },
+    ...opts,
+  });
+  if (!res.ok) throw Object.assign(new Error(`HTTP ${res.status}`), { status: res.status });
+  return res.json();
+}
+function hide(id)   { const el = document.getElementById(id); if (el) el.style.display = 'none'; }
+function show(id, d='')  { const el = document.getElementById(id); if (el) el.style.display = d; }
+function setText(id, v)  { const el = document.getElementById(id); if (el) el.textContent = v; }
+
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* TABS                                                                       */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+const tabLoaded = {};   // lazy-load flags
+
+document.querySelectorAll('.cd-tab').forEach(tab => {
+  tab.addEventListener('click', function () {
+    document.querySelectorAll('.cd-tab').forEach(t => { t.classList.remove('active'); t.setAttribute('aria-selected', 'false'); });
+    document.querySelectorAll('.cd-panel').forEach(p => p.classList.remove('active'));
+    this.classList.add('active');
+    this.setAttribute('aria-selected', 'true');
+    const name = this.dataset.tab;
+    show('panel-' + name, 'block');
+    if (!tabLoaded[name]) {
+      tabLoaded[name] = true;
+      switch (name) {
+        case 'health':   loadHealthTimeline(); break;
+        case 'forecast': loadForecast();       break;
+        case 'vet':      loadVetReports();     break;
+        case 'cost':     loadCostSummary();    break;
+      }
+    }
+  });
+});
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* HEADER CARD                                                                */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+async function loadHeader() {
+  try {
+    const d = await apiFetch(`/api/cattle/${CATTLE_ID}/dashboard/`);
+    setText('cdTagNumber', d.tag_number);
+    setText('cdName',      d.name);
+    setText('breadcrumbName', d.name);
+    document.title = `${d.name} — DairyMind`;
+    setText('cdBreed', `${d.breed} · ${d.is_active ? 'Active' : 'Inactive'}`);
+
+    const ageYr = d.age_years != null ? `${d.age_years} yrs` : '—';
+    const milkAvg = d.milk_last_30_days?.avg_daily_litres != null
+      ? `${d.milk_last_30_days.avg_daily_litres.toFixed(1)} L/day` : '—';
+    const openAlerts = d.health?.open_alerts ?? '—';
+
+    document.getElementById('cdChips').innerHTML = `
+      <span class="cd-chip"><i class="bi bi-calendar3" aria-hidden="true"></i> <span class="chip-label">Age:</span> ${ageYr}</span>
+      <span class="cd-chip"><i class="bi bi-droplet-fill" style="color:var(--dm-blue)" aria-hidden="true"></i> <span class="chip-label">Avg milk:</span> ${milkAvg}</span>
+      <span class="cd-chip"><i class="bi bi-shield-exclamation text-danger" aria-hidden="true"></i> <span class="chip-label">Open alerts:</span> ${openAlerts}</span>
+      ${d.weight_kg != null ? `<span class="cd-chip"><i class="bi bi-speedometer2" aria-hidden="true"></i> <span class="chip-label">Weight:</span> ${d.weight_kg} kg</span>` : ''}
+    `;
+
+    // Deactivate button
+    if (!d.is_active) {
+      const btn = document.getElementById('btnDeactivate');
+      if (btn) { btn.disabled = true; btn.textContent = 'Inactive'; }
+    }
+
+    hide('cdHeaderSkeleton');
+    show('cdHeaderReal', 'flex');
+  } catch (err) {
+    console.warn('[detail] header load error:', err);
+    setText('cdName', 'Error loading cattle');
+    hide('cdHeaderSkeleton');
+    show('cdHeaderReal', 'flex');
+  }
+}
+
+/* Deactivate cattle */
+document.getElementById('btnDeactivate')?.addEventListener('click', async function () {
+  if (!confirm('Deactivate this cattle? The record will be retained but marked as inactive.')) return;
+  try {
+    await apiFetch(`/api/cattle/${CATTLE_ID}/deactivate/`, { method: 'POST' });
+    location.reload();
+  } catch (err) {
+    alert('Failed to deactivate: ' + err.message);
+  }
+});
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* TAB 1: MILK HISTORY                                                        */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+let milkChartInst = null;
+
+async function loadMilkHistory() {
+  try {
+    const d = await apiFetch(`/api/cattle/${CATTLE_ID}/milk-history/`);
+
+    // Summary strip
+    document.getElementById('milkSummaryStrip').innerHTML = `
+      <div class="cd-summary-item">
+        <div class="sv text-dm-green">${(d.total_litres || 0).toFixed(1)}</div>
+        <div class="sl">Total Litres</div>
+      </div>
+      <div class="cd-summary-item">
+        <div class="sv">${(d.avg_daily || 0).toFixed(1)}</div>
+        <div class="sl">Avg / Day</div>
+      </div>
+      <div class="cd-summary-item">
+        <div class="sv">${d.logs?.length ?? 0}</div>
+        <div class="sl">Days Logged</div>
+      </div>`;
+
+    hide('milkChartSk');
+    show('milkChartWrap', 'block');
+
+    const logs   = d.logs || [];
+    const labels = logs.map(l => l.date.slice(5));  // MM-DD
+    const values = logs.map(l => l.total_litres);
+
+    if (milkChartInst) milkChartInst.destroy();
+    milkChartInst = new Chart(
+      document.getElementById('milkHistoryChart'),
+      {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label:           'Total Litres',
+            data:            values,
+            borderColor:     '#2e8555',
+            backgroundColor: 'rgba(46,133,85,.12)',
+            borderWidth:     2.5,
+            pointRadius:     4,
+            pointHoverRadius: 7,
+            fill:            true,
+            tension:         0.4,
+          }],
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: '#1a4731', titleColor: '#d4f0e1', bodyColor: '#fff', padding: 10,
+              callbacks: { label: c => ` ${c.parsed.y.toFixed(2)} L` },
+            },
+          },
+          scales: {
+            x: { grid: { display: false }, ticks: { color: '#718096', font: { size: 11 }, maxTicksLimit: 12 } },
+            y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,.05)' },
+                 ticks: { color: '#718096', font: { size: 11 }, callback: v => v + ' L' } },
+          },
+        },
+      }
+    );
+
+    // Logs table
+    hide('milkLogsSk');
+    if (!logs.length) { show('milkLogsEmpty', 'block'); return; }
+    show('milkLogsTable', '');
+    document.getElementById('milkLogsTbody').innerHTML = logs.slice().reverse().map(l => `
+      <tr>
+        <td>${l.date}</td>
+        <td>${(+l.morning_litres).toFixed(2)}</td>
+        <td>${(+l.evening_litres).toFixed(2)}</td>
+        <td><span class="dm-badge dm-badge--green">${(+l.total_litres).toFixed(2)} L</span></td>
+      </tr>`).join('');
+
+  } catch (err) {
+    hide('milkChartSk'); hide('milkLogsSk');
+    show('milkLogsError', 'block');
+    console.warn('[detail] milk history error:', err);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* TAB 2: HEALTH TIMELINE                                                     */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+let fullTimeline = [];
+
+function renderTimeline(filter) {
+  const items = filter ? fullTimeline.filter(e => e.event_type === filter) : fullTimeline;
+  const container = document.getElementById('healthTimeline');
+  if (!items.length) { hide('healthTimeline'); show('healthEmpty', 'block'); return; }
+  hide('healthEmpty'); show('healthTimeline', 'block');
+
+  const SEV = {
+    HIGH:   'alert-high',
+    MEDIUM: 'alert-medium',
+    LOW:    'alert-low',
+  };
+
+  container.innerHTML = items.map(ev => {
+    const dotCls = ev.event_type === 'record'
+      ? 'cd-tl-dot--record'
+      : `cd-tl-dot--${(SEV[ev.severity] || 'alert-low')}`;
+
+    let title, body;
+    if (ev.event_type === 'alert') {
+      const sev = ev.severity || 'LOW';
+      const badgeCls = sev === 'HIGH' ? 'dm-badge--red' : sev === 'MEDIUM' ? 'dm-badge--amber' : 'dm-badge--blue';
+      title = `<span class="dm-badge ${badgeCls} me-2">${sev}</span>${ev.alert_type || 'Alert'}
+               ${ev.is_resolved ? '<span class="dm-badge dm-badge--green ms-1">Resolved</span>' : ''}`;
+      body  = ev.message || '—';
+    } else {
+      title = `<i class="bi bi-stethoscope me-1" aria-hidden="true"></i>Vet Visit${ev.vet_name ? ` — ${ev.vet_name}` : ''}`;
+      body  = [
+        ev.symptoms  ? `<strong>Symptoms:</strong> ${ev.symptoms}`  : '',
+        ev.treatment ? `<strong>Treatment:</strong> ${ev.treatment}` : '',
+        ev.temperature != null ? `<strong>Temp:</strong> ${ev.temperature}°C` : '',
+      ].filter(Boolean).join('<br>') || '—';
+    }
+
+    return `
+      <div class="cd-tl-item" role="listitem">
+        <div class="cd-tl-dot ${dotCls}" aria-hidden="true"></div>
+        <div class="cd-tl-date"><i class="bi bi-calendar3 me-1"></i>${ev.date}</div>
+        <div class="cd-tl-body">
+          <div class="cd-tl-title">${title}</div>
+          <div style="font-size:.83rem;color:var(--dm-gray-700);line-height:1.5">${body}</div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+async function loadHealthTimeline() {
+  try {
+    const d = await apiFetch(`/api/cattle/${CATTLE_ID}/health-timeline/`);
+    fullTimeline = d.timeline || [];
+    hide('healthSk');
+    renderTimeline('');
+  } catch (err) {
+    hide('healthSk'); show('healthError', 'block');
+    console.warn('[detail] health timeline error:', err);
+  }
+}
+
+document.getElementById('healthFilter')?.addEventListener('change', function () {
+  renderTimeline(this.value);
+});
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* TAB 3: FORECAST                                                            */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+let forecastChartInst = null;
+
+async function loadForecast(refresh = false) {
+  hide('forecastContent'); hide('forecastError');
+  show('forecastSk', 'block');
+
+  try {
+    const url = `/api/forecast/${CATTLE_ID}/?days=30${refresh ? '&refresh=true' : ''}`;
+    const d   = await apiFetch(url);
+
+    hide('forecastSk');
+    show('forecastContent', 'block');
+
+    setText('forecastMetaText',
+      `Generated: ${d.generated_at ? new Date(d.generated_at).toLocaleString('en-IN') : '—'} · ` +
+      `${d.forecast_days || 30} days ahead${d.stale ? ' · ⚠ Cached (>24h old)' : ''}`
+    );
+
+    if (forecastChartInst) forecastChartInst.destroy();
+    forecastChartInst = new Chart(
+      document.getElementById('forecastChart'),
+      {
+        type: 'line',
+        data: {
+          labels: d.labels || [],
+          datasets: [
+            {
+              label:           'Predicted',
+              data:            d.predicted || [],
+              borderColor:     '#2e8555',
+              backgroundColor: 'rgba(46,133,85,.15)',
+              borderWidth:     2.5,
+              pointRadius:     3,
+              fill:            '+1',
+              tension:         0.35,
+            },
+            {
+              label:           'Upper Bound',
+              data:            d.upper_bound || [],
+              borderColor:     'rgba(46,133,85,.25)',
+              borderWidth:     1,
+              pointRadius:     0,
+              fill:            false,
+              tension:         0.35,
+            },
+            {
+              label:           'Lower Bound',
+              data:            d.lower_bound || [],
+              borderColor:     'rgba(46,133,85,.25)',
+              backgroundColor: 'rgba(46,133,85,.08)',
+              borderWidth:     1,
+              pointRadius:     0,
+              fill:            '-1',
+              tension:         0.35,
+            },
+          ],
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { labels: { filter: i => i.text !== 'Upper Bound' && i.text !== 'Lower Bound' } },
+            tooltip: {
+              backgroundColor: '#1a4731', titleColor: '#d4f0e1', bodyColor: '#fff', padding: 10,
+              callbacks: { label: c => ` ${c.dataset.label}: ${c.parsed.y?.toFixed(2)} L` },
+            },
+          },
+          scales: {
+            x: { grid: { display: false }, ticks: { color: '#718096', font: { size: 11 }, maxTicksLimit: 10 } },
+            y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,.05)' },
+                 ticks: { color: '#718096', callback: v => v + ' L' } },
+          },
+        },
+      }
+    );
+  } catch (err) {
+    hide('forecastSk'); hide('forecastContent'); show('forecastError', 'block');
+    const msg = err.status === 400
+      ? 'Not enough historical data to generate a forecast (minimum 30 days of milk logs required).'
+      : `Failed to load forecast. ${err.message}`;
+    setText('forecastErrorMsg', msg);
+    console.warn('[detail] forecast error:', err);
+  }
+}
+
+document.getElementById('btnRefreshForecast')?.addEventListener('click', () => loadForecast(true));
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* TAB 4: VET REPORTS                                                        */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+const STATUS_ICON = {
+  pending_summarization: '<i class="bi bi-hourglass-split vr-status-pending" title="Processing"></i>',
+  summary_ready:         '<i class="bi bi-check-circle-fill vr-status-ready"  title="Ready"></i>',
+  summary_failed:        '<i class="bi bi-x-circle-fill vr-status-failed"     title="Failed"></i>',
+};
+
+async function loadVetReports() {
+  try {
+    const d    = await apiFetch(`/api/vet-reports/?cattle_id=${CATTLE_ID}`);
+    const list = d.results || [];
+    hide('vetSk');
+    if (!list.length) { show('vetEmpty', 'block'); return; }
+    show('vetList', 'block');
+    document.getElementById('vetList').innerHTML = list.map(r => {
+      const date = r.upload_date ? new Date(r.upload_date).toLocaleDateString('en-IN') : '—';
+      const icon = STATUS_ICON[r.status] || STATUS_ICON.pending_summarization;
+      const summary = r.ai_summary
+        ? `<div class="mt-2" style="font-size:.82rem;color:var(--dm-gray-700);background:var(--dm-gray-50);
+                              border-left:3px solid var(--dm-green-300);border-radius:4px;padding:8px 12px;line-height:1.5">
+             ${r.ai_summary}</div>`
+        : (r.status === 'pending_summarization'
+            ? `<div class="mt-2" style="font-size:.8rem;color:var(--dm-amber)"><i class="bi bi-hourglass-split me-1"></i>AI summary in progress…</div>`
+            : (r.status === 'summary_failed'
+                ? `<div class="mt-2" style="font-size:.8rem;color:var(--dm-red)"><i class="bi bi-x-circle me-1"></i>Summarisation failed.</div>`
+                : ''));
+      return `
+        <div class="vr-card" role="article">
+          <div class="vr-icon" aria-hidden="true">📄</div>
+          <div style="flex:1;min-width:0">
+            <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
+              <span class="fw-700" style="font-size:.9rem">${r.original_filename}</span>
+              <div class="d-flex align-items-center gap-2">
+                ${icon}
+                <span class="text-muted" style="font-size:.78rem"><i class="bi bi-calendar3 me-1"></i>${date}</span>
+              </div>
+            </div>
+            ${summary}
+          </div>
+        </div>`;
+    }).join('');
+  } catch (err) {
+    hide('vetSk'); show('vetError', 'block');
+    console.warn('[detail] vet reports error:', err);
+  }
+}
+
+/* Upload vet report */
+document.getElementById('uploadVetForm')?.addEventListener('submit', async function (e) {
+  e.preventDefault();
+  const file = document.getElementById('vetFile').files[0];
+  if (!file) return;
+
+  const errEl  = document.getElementById('vetUploadError');
+  const succEl = document.getElementById('vetUploadSuccess');
+  const btn    = document.getElementById('vetUploadSubmit');
+  const spin   = document.getElementById('vetUploadSpinner');
+
+  errEl.style.display = succEl.style.display = 'none';
+  btn.disabled = true; spin.style.display = '';
+
+  try {
+    const fd = new FormData();
+    fd.append('cattle_id', CATTLE_ID);
+    fd.append('file', file);
+    await apiFetch('/api/vet-reports/upload/', {
+      method: 'POST',
+      body:   fd,
+      headers: {}, // let browser set Content-Type with boundary
+    });
+    succEl.style.display = 'flex';
+    this.reset();
+    // Reload vet list after short delay
+    setTimeout(async () => {
+      hide('uploadVetModal'); // close modal via BS
+      bootstrap.Modal.getInstance(document.getElementById('uploadVetModal'))?.hide();
+      tabLoaded['vet'] = false; // force reload
+      await loadVetReports();
+    }, 1800);
+  } catch (err) {
+    document.getElementById('vetUploadErrorMsg').textContent = 'Upload failed: ' + err.message;
+    errEl.style.display = 'flex';
+  } finally {
+    btn.disabled = false; spin.style.display = 'none';
+  }
+});
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* TAB 5: COST SUMMARY                                                       */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+let costChartInst = null;
+
+/* Populate month / year pickers */
+(function () {
+  const now = new Date();
+  const mSel = document.getElementById('costMonthPicker');
+  const ySel = document.getElementById('costYearPicker');
+  MONTHS.forEach((m, i) => {
+    const opt = new Option(m, i + 1, i + 1 === now.getMonth() + 1, i + 1 === now.getMonth() + 1);
+    mSel.append(opt);
+  });
+  for (let y = now.getFullYear(); y >= now.getFullYear() - 3; y--) {
+    const opt = new Option(y, y, y === now.getFullYear(), y === now.getFullYear());
+    ySel.append(opt);
+  }
+})();
+
+async function loadCostSummary() {
+  const month = document.getElementById('costMonthPicker').value;
+  const year  = document.getElementById('costYearPicker').value;
+
+  hide('costContent'); hide('costError');
+  show('costSk', 'block');
+
+  try {
+    const d = await apiFetch(`/api/costs/summary/${CATTLE_ID}/?month=${month}&year=${year}`);
+    hide('costSk'); show('costContent', 'block');
+
+    // Summary strip
+    const profit = d.profit || 0;
+    const pSign  = profit >= 0 ? '+' : '';
+    document.getElementById('costSummaryStrip').innerHTML = `
+      <div class="cd-summary-item">
+        <div class="sv" style="color:var(--dm-red)">₹${(+(d.total_feed_cost || 0)).toFixed(0)}</div>
+        <div class="sl">Feed Cost</div>
+      </div>
+      <div class="cd-summary-item">
+        <div class="sv" style="color:var(--dm-green-600)">₹${(+(d.revenue || 0)).toFixed(0)}</div>
+        <div class="sl">Revenue</div>
+      </div>
+      <div class="cd-summary-item">
+        <div class="sv" style="color:${profit >= 0 ? 'var(--dm-green-600)' : 'var(--dm-red)'}">
+          ${pSign}₹${Math.abs(profit).toFixed(0)}
+        </div>
+        <div class="sl">Profit / Loss</div>
+      </div>
+      <div class="cd-summary-item">
+        <div class="sv">${d.total_milk_litres != null ? (+d.total_milk_litres).toFixed(1) : '—'}</div>
+        <div class="sl">Milk (L)</div>
+      </div>`;
+
+    // Bar chart — cost vs revenue
+    const mLabel = `${MONTHS[+month - 1]} ${year}`;
+    if (costChartInst) costChartInst.destroy();
+    costChartInst = new Chart(
+      document.getElementById('costChart'),
+      {
+        type: 'bar',
+        data: {
+          labels: [mLabel],
+          datasets: [
+            { label: 'Feed Cost (₹)', data: [+(d.total_feed_cost || 0)], backgroundColor: 'rgba(229,62,62,.7)', borderRadius: 6 },
+            { label: 'Revenue (₹)',   data: [+(d.revenue || 0)],         backgroundColor: 'rgba(46,133,85,.7)',  borderRadius: 6 },
+            { label: 'Profit (₹)',    data: [profit],                    backgroundColor: profit >= 0 ? 'rgba(58,170,110,.8)' : 'rgba(229,62,62,.4)', borderRadius: 6 },
+          ],
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'bottom', labels: { padding: 16, font: { size: 12 } } },
+            tooltip: { callbacks: { label: c => ` ₹${c.parsed.y.toFixed(2)}` } },
+          },
+          scales: {
+            x: { grid: { display: false }, ticks: { color: '#718096' } },
+            y: { beginAtZero: true, ticks: { color: '#718096', callback: v => '₹' + v } },
+          },
+        },
+      }
+    );
+  } catch (err) {
+    hide('costSk'); hide('costContent'); show('costError', 'block');
+    setText('costErrorMsg',
+      err.status === 404 ? 'No cost data found for this cattle.' : `Failed to load cost data. ${err.message}`);
+    console.warn('[detail] cost summary error:', err);
+  }
+}
+
+document.getElementById('btnLoadCost')?.addEventListener('click', loadCostSummary);
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* BOOT                                                                      */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+document.addEventListener('DOMContentLoaded', () => {
+  if (!CATTLE_ID || isNaN(CATTLE_ID)) {
+    alert('Invalid cattle URL.'); return;
+  }
+  tabLoaded['milk'] = true;   // milk tab is the default — load immediately
+  Promise.allSettled([loadHeader(), loadMilkHistory()]);
+});
+</script>
+{% endblock %}

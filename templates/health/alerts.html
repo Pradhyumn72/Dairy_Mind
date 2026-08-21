@@ -1,0 +1,499 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Health Alerts — DairyMind{% endblock %}
+{% block meta_description %}Monitor, filter and resolve health alerts for all cattle on the farm.{% endblock %}
+{% block nav_health %}active{% endblock %}
+{% block page_title %}Health Alerts{% endblock %}
+
+{% block extra_head %}
+<style>
+  /* ── Filter bar ───────────────────────────────────────────────────────── */
+  .ha-filter-bar {
+    display:     flex;
+    align-items: center;
+    gap:         8px;
+    flex-wrap:   wrap;
+    margin-bottom: 20px;
+  }
+  .ha-filter-btn {
+    padding:       7px 15px;
+    border:        1.5px solid var(--dm-gray-200);
+    border-radius: var(--radius-xl);
+    background:    var(--dm-white);
+    font-size:     .8rem;
+    font-weight:   600;
+    color:         var(--dm-gray-600);
+    cursor:        pointer;
+    transition:    all .17s;
+    white-space:   nowrap;
+  }
+  .ha-filter-btn:hover { border-color: var(--dm-green-400); color: var(--dm-green-700); }
+  .ha-filter-btn.active { background: var(--dm-green-700); border-color: var(--dm-green-700); color: #fff; }
+  .ha-filter-btn.sev-high.active   { background: #c53030; border-color: #c53030; }
+  .ha-filter-btn.sev-medium.active { background: #c05621; border-color: #c05621; }
+  .ha-filter-btn.sev-low.active    { background: #975a16; border-color: #975a16; }
+
+  .ha-select {
+    padding:       7px 12px;
+    border:        1.5px solid var(--dm-gray-200);
+    border-radius: var(--radius-md);
+    font-size:     .83rem;
+    background:    var(--dm-white);
+    color:         var(--dm-gray-700);
+    cursor:        pointer;
+    outline:       none;
+  }
+  .ha-select:focus { border-color: var(--dm-green-400); }
+
+  /* ── Summary strip ────────────────────────────────────────────────────── */
+  .ha-summary-grid {
+    display:               grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap:                   12px;
+    margin-bottom:         24px;
+  }
+  .ha-summary-card {
+    background:    var(--dm-white);
+    border:        1px solid var(--dm-gray-200);
+    border-radius: var(--radius-lg);
+    padding:       16px;
+    text-align:    center;
+    border-top:    4px solid var(--dm-gray-300);
+    box-shadow:    var(--shadow-sm);
+  }
+  .ha-summary-card.sev-high   { border-top-color: var(--dm-red); }
+  .ha-summary-card.sev-medium { border-top-color: #ed8936; }
+  .ha-summary-card.sev-low    { border-top-color: #d69e2e; }
+  .ha-summary-card.resolved   { border-top-color: var(--dm-gray-400); }
+  .ha-summary-value {
+    font-family: var(--font-display);
+    font-size:   1.8rem;
+    font-weight: 800;
+    line-height: 1;
+  }
+  .ha-summary-label {
+    font-size:   .7rem;
+    font-weight: 600;
+    color:       var(--dm-gray-500);
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    margin-top:  4px;
+  }
+  .ha-summary-sub { font-size: .72rem; color: var(--dm-gray-400); margin-top: 2px; }
+
+  /* ── Alert cards ──────────────────────────────────────────────────────── */
+  .ha-card {
+    background:    var(--dm-white);
+    border:        1px solid var(--dm-gray-200);
+    border-left:   5px solid var(--dm-gray-300);
+    border-radius: var(--radius-lg);
+    padding:       18px 20px;
+    margin-bottom: 14px;
+    box-shadow:    var(--shadow-sm);
+    transition:    box-shadow .18s, transform .18s;
+    display:       flex;
+    gap:           16px;
+    align-items:   flex-start;
+  }
+  .ha-card:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+  .ha-card.sev-HIGH   { border-left-color: var(--dm-red); }
+  .ha-card.sev-MEDIUM { border-left-color: #ed8936; }
+  .ha-card.sev-LOW    { border-left-color: #d69e2e; }
+  .ha-card.resolved   { border-left-color: var(--dm-gray-300); opacity: .75; }
+
+  .ha-card-icon {
+    width:           44px;
+    height:          44px;
+    border-radius:   var(--radius-md);
+    display:         flex;
+    align-items:     center;
+    justify-content: center;
+    font-size:       1.3rem;
+    flex-shrink:     0;
+  }
+  .ha-card-icon.sev-HIGH   { background: #fff0f0; }
+  .ha-card-icon.sev-MEDIUM { background: #fffaf0; }
+  .ha-card-icon.sev-LOW    { background: #fffff0; }
+  .ha-card-icon.resolved   { background: var(--dm-gray-100); }
+
+  .ha-card-body { flex: 1; min-width: 0; }
+  .ha-card-header { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; }
+  .ha-card-cattle { font-weight: 700; font-size: .93rem; }
+  .ha-card-tag    { font-family: monospace; font-size: .8rem; color: var(--dm-green-600); margin-left: 6px; }
+  .ha-card-meta   { font-size: .76rem; color: var(--dm-gray-500); margin-top: 4px; }
+  .ha-card-msg    { font-size: .87rem; color: var(--dm-gray-700); margin-top: 6px; line-height: 1.5; }
+
+  /* ── Severity badges ──────────────────────────────────────────────────── */
+  .sev-badge {
+    display:       inline-flex;
+    align-items:   center;
+    gap:           4px;
+    padding:       3px 10px;
+    border-radius: 20px;
+    font-size:     .72rem;
+    font-weight:   700;
+    letter-spacing: .3px;
+  }
+  .sev-badge.HIGH     { background: #fff0f0; color: var(--dm-red); border: 1px solid #fca5a5; }
+  .sev-badge.MEDIUM   { background: #fffaf0; color: #c05621;       border: 1px solid #fbd38d; }
+  .sev-badge.LOW      { background: #fffff0; color: #975a16;        border: 1px solid #fef08a; }
+  .sev-badge.RESOLVED { background: var(--dm-gray-100); color: var(--dm-gray-600); border: 1px solid var(--dm-gray-300); }
+
+  /* ── Resolve button ───────────────────────────────────────────────────── */
+  .ha-resolve-btn {
+    padding:       5px 12px;
+    border:        1.5px solid var(--dm-green-400);
+    border-radius: var(--radius-md);
+    background:    transparent;
+    color:         var(--dm-green-700);
+    font-size:     .78rem;
+    font-weight:   600;
+    cursor:        pointer;
+    white-space:   nowrap;
+    transition:    all .17s;
+  }
+  .ha-resolve-btn:hover { background: var(--dm-green-500); color: #fff; border-color: var(--dm-green-500); }
+  .ha-resolve-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+  /* ── Toast ────────────────────────────────────────────────────────────── */
+  #haToast { min-width: 280px; border-radius: var(--radius-md); }
+
+  /* ── Skeleton cards ───────────────────────────────────────────────────── */
+  .sk-ha-card { height: 90px; border-radius: var(--radius-lg); margin-bottom: 14px; }
+</style>
+{% endblock %}
+
+
+{% block content %}
+
+{# ── Page header ─────────────────────────────────────────────────────────── #}
+<div class="dm-page-header">
+  <div>
+    <h2 class="dm-page-header__title">🚨 Health Alerts</h2>
+    <p class="dm-page-header__subtitle">Click "Mark Resolved" on any alert to acknowledge and close it</p>
+  </div>
+  <button class="dm-btn dm-btn--primary" id="btnRunCheck" type="button">
+    <span id="runCheckSpinner" class="spinner-border spinner-border-sm me-1" style="display:none" aria-hidden="true"></span>
+    <i class="bi bi-cpu-fill me-1" id="runCheckIcon" aria-hidden="true"></i>
+    Run Anomaly Check
+  </button>
+</div>
+
+
+{# ── Summary strip ────────────────────────────────────────────────────────── #}
+<div class="ha-summary-grid" id="haSummaryGrid" role="region" aria-label="Alert summary">
+  {% for _ in "1234" %}
+  <div class="ha-summary-card">
+    <div class="dm-skeleton" style="height:30px;width:50%;border-radius:6px;margin:auto"></div>
+    <div class="dm-skeleton mt-2" style="height:12px;width:70%;border-radius:4px;margin:auto"></div>
+  </div>
+  {% endfor %}
+</div>
+
+
+{# ── Filter bar ───────────────────────────────────────────────────────────── #}
+<div class="ha-filter-bar" role="toolbar" aria-label="Alert filters">
+
+  {# Severity filter #}
+  <div class="d-flex gap-1 flex-wrap">
+    <button class="ha-filter-btn active" data-sev="" aria-pressed="true">All</button>
+    <button class="ha-filter-btn sev-high"   data-sev="HIGH"   aria-pressed="false">🔴 HIGH</button>
+    <button class="ha-filter-btn sev-medium" data-sev="MEDIUM" aria-pressed="false">🟠 MEDIUM</button>
+    <button class="ha-filter-btn sev-low"    data-sev="LOW"    aria-pressed="false">🟡 LOW</button>
+  </div>
+
+  <div style="width:1px;height:28px;background:var(--dm-gray-200);margin:0 4px"></div>
+
+  {# Status filter #}
+  <select id="haStatusFilter" class="ha-select" aria-label="Filter by status">
+    <option value="">All statuses</option>
+    <option value="false">Unresolved only</option>
+    <option value="true">Resolved only</option>
+  </select>
+
+  {# Cattle filter (populated dynamically) #}
+  <select id="haCattleFilter" class="ha-select" aria-label="Filter by cattle">
+    <option value="">All cattle</option>
+  </select>
+
+  <span class="ms-auto text-dm-muted" style="font-size:.8rem">
+    Showing <strong id="haVisibleCount">—</strong> alerts
+  </span>
+</div>
+
+
+{# ── Alert cards container ─────────────────────────────────────────────────── #}
+<div id="haCardsContainer" role="region" aria-live="polite" aria-label="Alert list">
+  {# Skeleton cards while loading #}
+  {% for _ in "12345" %}
+  <div class="dm-skeleton sk-ha-card" role="presentation"></div>
+  {% endfor %}
+</div>
+
+{# Empty state #}
+<div id="haEmptyState" style="display:none" class="text-center py-5 text-muted">
+  <i class="bi bi-check-circle-fill text-success" style="font-size:3rem"></i>
+  <p class="mt-3 fw-700">No alerts match your filters.</p>
+  <p style="font-size:.85rem">Try adjusting the severity or status filter.</p>
+</div>
+
+{# Error state #}
+<div id="haErrorState" class="dm-alert dm-alert--danger" style="display:none" role="alert">
+  <i class="bi bi-exclamation-triangle-fill me-2"></i>
+  <span id="haErrorMsg">Failed to load health alerts.</span>
+</div>
+
+
+{# ── Toast notification ───────────────────────────────────────────────────── #}
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index:9999">
+  <div id="haToast" class="toast align-items-center border-0" role="status" aria-live="assertive" aria-atomic="true">
+    <div class="d-flex">
+      <div class="toast-body d-flex align-items-center gap-2" id="haToastBody">
+        <i class="bi bi-check-circle-fill text-success fs-5" id="haToastIcon" aria-hidden="true"></i>
+        <span id="haToastMsg">Alert resolved.</span>
+      </div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+
+{% block extra_scripts %}
+<script>
+'use strict';
+
+/* ── Helpers ─────────────────────────────────────────────────────────────── */
+function getCsrf() { const m = document.cookie.match(/csrftoken=([^;]+)/); return m ? m[1] : ''; }
+async function apiFetch(url, opts = {}) {
+  const res = await fetch(url, {
+    credentials: 'same-origin',
+    headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': getCsrf(), ...(opts.headers || {}) },
+    ...opts,
+  });
+  if (!res.ok) throw Object.assign(new Error(`HTTP ${res.status}`), { status: res.status });
+  return res.json();
+}
+
+function showToast(msg, success = true) {
+  const icon = document.getElementById('haToastIcon');
+  const msgEl = document.getElementById('haToastMsg');
+  const toast  = document.getElementById('haToast');
+  icon.className = success
+    ? 'bi bi-check-circle-fill text-success fs-5'
+    : 'bi bi-exclamation-triangle-fill text-warning fs-5';
+  msgEl.textContent = msg;
+  toast.className = `toast align-items-center border-0 text-white ${success ? 'bg-success' : 'bg-danger'}`;
+  bootstrap.Toast.getOrCreateInstance(toast, { delay: 4000 }).show();
+}
+
+/* ── State ───────────────────────────────────────────────────────────────── */
+let allAlerts = [];
+let activeSev = '';
+let activeStatus = '';
+let activeCattle = '';
+
+/* ── Fetch and populate cattle dropdown ──────────────────────────────────── */
+async function populateCattleDropdown() {
+  try {
+    const data = await apiFetch('/api/cattle/?is_active=true&page_size=500');
+    const cattle = data.results || [];
+    const sel = document.getElementById('haCattleFilter');
+    cattle.forEach(c => {
+      sel.append(new Option(`${c.name} (${c.tag_number})`, c.id));
+    });
+  } catch (_) {}
+}
+
+/* ── Render summary strip ────────────────────────────────────────────────── */
+function renderSummary(alerts) {
+  const today = new Date().toISOString().slice(0, 10);
+  const weekAgo = new Date(Date.now() - 7 * 864e5).toISOString().slice(0, 10);
+
+  const count = (sev, resolved) => alerts.filter(a =>
+    (!sev || a.severity === sev) &&
+    (resolved === undefined || a.is_resolved === resolved)
+  ).length;
+
+  const todayCount = (sev) => alerts.filter(a =>
+    a.alert_date === today && (!sev || a.severity === sev) && !a.is_resolved
+  ).length;
+
+  const weekCount = (sev) => alerts.filter(a =>
+    a.alert_date >= weekAgo && (!sev || a.severity === sev) && !a.is_resolved
+  ).length;
+
+  document.getElementById('haSummaryGrid').innerHTML = `
+    <div class="ha-summary-card sev-high">
+      <div class="ha-summary-value" style="color:var(--dm-red)">${count('HIGH', false)}</div>
+      <div class="ha-summary-label">HIGH Unresolved</div>
+      <div class="ha-summary-sub">${todayCount('HIGH')} today · ${weekCount('HIGH')} this week</div>
+    </div>
+    <div class="ha-summary-card sev-medium">
+      <div class="ha-summary-value" style="color:#c05621">${count('MEDIUM', false)}</div>
+      <div class="ha-summary-label">MEDIUM Unresolved</div>
+      <div class="ha-summary-sub">${todayCount('MEDIUM')} today · ${weekCount('MEDIUM')} this week</div>
+    </div>
+    <div class="ha-summary-card sev-low">
+      <div class="ha-summary-value" style="color:#975a16">${count('LOW', false)}</div>
+      <div class="ha-summary-label">LOW Unresolved</div>
+      <div class="ha-summary-sub">${todayCount('LOW')} today · ${weekCount('LOW')} this week</div>
+    </div>
+    <div class="ha-summary-card resolved">
+      <div class="ha-summary-value" style="color:var(--dm-gray-500)">${count(null, true)}</div>
+      <div class="ha-summary-label">Resolved</div>
+      <div class="ha-summary-sub">Total across all time</div>
+    </div>`;
+}
+
+/* ── Render filtered alert cards ─────────────────────────────────────────── */
+const SEV_ICON = { HIGH: 'bi-exclamation-triangle-fill', MEDIUM: 'bi-exclamation-circle-fill', LOW: 'bi-info-circle-fill' };
+
+function renderCards() {
+  let filtered = allAlerts.filter(a => {
+    if (activeSev  && a.severity !== activeSev) return false;
+    if (activeStatus !== '' && String(a.is_resolved) !== activeStatus) return false;
+    if (activeCattle && String(a.cattle_id) !== activeCattle) return false;
+    return true;
+  });
+
+  document.getElementById('haVisibleCount').textContent = filtered.length;
+  const container = document.getElementById('haCardsContainer');
+  const empty     = document.getElementById('haEmptyState');
+
+  if (!filtered.length) {
+    container.innerHTML = '';
+    empty.style.display = '';
+    return;
+  }
+  empty.style.display = 'none';
+
+  container.innerHTML = filtered.map(a => {
+    const sev = a.severity || 'LOW';
+    const icon = SEV_ICON[sev] || SEV_ICON.LOW;
+    const resolvedCls = a.is_resolved ? 'resolved' : `sev-${sev}`;
+    const resolvedAt  = a.resolved_at ? `Resolved: ${new Date(a.resolved_at).toLocaleDateString('en-IN')}` : '';
+    const sevLabel    = a.is_resolved ? 'RESOLVED' : sev;
+    const sevBadgeCls = a.is_resolved ? 'RESOLVED' : sev;
+
+    return `
+      <div class="ha-card ${resolvedCls}" id="haCard-${a.id}" role="article" aria-label="${sev} alert for ${a.cattle_name}">
+        <div class="ha-card-icon ${resolvedCls}">
+          <i class="bi ${icon}" style="color:${sev==='HIGH'?'var(--dm-red)':sev==='MEDIUM'?'#c05621':'#975a16'}" aria-hidden="true"></i>
+        </div>
+        <div class="ha-card-body">
+          <div class="ha-card-header">
+            <div>
+              <span class="ha-card-cattle">${a.cattle_name || '—'}</span>
+              <span class="ha-card-tag">${a.tag_number || ''}</span>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+              <span class="sev-badge ${sevBadgeCls}">
+                <i class="bi ${icon}" aria-hidden="true"></i> ${sevLabel}
+              </span>
+              ${!a.is_resolved
+                ? `<button class="ha-resolve-btn" data-id="${a.id}" aria-label="Mark alert ${a.id} as resolved">
+                     <i class="bi bi-check-lg me-1" aria-hidden="true"></i>Mark Resolved
+                   </button>`
+                : `<span class="text-muted" style="font-size:.76rem">${resolvedAt}</span>`}
+            </div>
+          </div>
+          <div class="ha-card-meta">
+            <i class="bi bi-calendar3 me-1" aria-hidden="true"></i>${a.alert_date}
+            &nbsp;·&nbsp;
+            <span class="dm-badge dm-badge--gray" style="font-size:.7rem">${a.alert_type || '—'}</span>
+          </div>
+          <div class="ha-card-msg">${a.message || 'No message provided.'}</div>
+        </div>
+      </div>`;
+  }).join('');
+
+  /* Attach resolve button listeners */
+  container.querySelectorAll('.ha-resolve-btn').forEach(btn => {
+    btn.addEventListener('click', () => resolveAlert(+btn.dataset.id, btn));
+  });
+}
+
+/* ── Resolve an alert ────────────────────────────────────────────────────── */
+async function resolveAlert(id, btn) {
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Resolving…';
+  try {
+    await apiFetch(`/api/alerts/${id}/acknowledge/`, { method: 'POST' });
+    /* Update in-place so we don't need a full reload */
+    const alert = allAlerts.find(a => a.id === id);
+    if (alert) { alert.is_resolved = true; alert.resolved_at = new Date().toISOString(); }
+    renderCards();
+    renderSummary(allAlerts);
+    showToast('Alert resolved successfully!', true);
+  } catch (err) {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Mark Resolved';
+    showToast('Failed to resolve alert. Try again.', false);
+  }
+}
+
+/* ── Load all alerts ─────────────────────────────────────────────────────── */
+async function loadAlerts() {
+  try {
+    const data = await apiFetch('/api/alerts/?page_size=500');
+    allAlerts = data.results || [];
+    renderSummary(allAlerts);
+    renderCards();
+  } catch (err) {
+    document.querySelectorAll('.sk-ha-card').forEach(el => el.remove());
+    document.getElementById('haErrorState').style.display = '';
+    document.getElementById('haErrorMsg').textContent = 'Failed to load alerts: ' + err.message;
+  }
+}
+
+/* ── Severity filter buttons ─────────────────────────────────────────────── */
+document.querySelectorAll('.ha-filter-btn[data-sev]').forEach(btn => {
+  btn.addEventListener('click', function () {
+    document.querySelectorAll('.ha-filter-btn[data-sev]').forEach(b => {
+      b.classList.remove('active'); b.setAttribute('aria-pressed', 'false');
+    });
+    this.classList.add('active'); this.setAttribute('aria-pressed', 'true');
+    activeSev = this.dataset.sev;
+    renderCards();
+  });
+});
+
+document.getElementById('haStatusFilter').addEventListener('change', function () {
+  activeStatus = this.value; renderCards();
+});
+document.getElementById('haCattleFilter').addEventListener('change', function () {
+  activeCattle = this.value; renderCards();
+});
+
+/* ── Run anomaly check ───────────────────────────────────────────────────── */
+document.getElementById('btnRunCheck').addEventListener('click', async function () {
+  const spinner = document.getElementById('runCheckSpinner');
+  const icon    = document.getElementById('runCheckIcon');
+  this.disabled = true;
+  spinner.style.display = '';
+  icon.style.display    = 'none';
+
+  try {
+    const res = await apiFetch('/api/alerts/run-check/', { method: 'POST' });
+    showToast(`Anomaly check enqueued (task: ${res.task_id?.slice(0,8)}…). New alerts will appear shortly.`, true);
+    /* Reload list after 6s to pick up newly created alerts */
+    setTimeout(() => loadAlerts(), 6000);
+  } catch (err) {
+    showToast('Failed to trigger anomaly check.', false);
+  } finally {
+    this.disabled      = false;
+    spinner.style.display = 'none';
+    icon.style.display    = '';
+  }
+});
+
+/* ── Boot ────────────────────────────────────────────────────────────────── */
+document.addEventListener('DOMContentLoaded', () => {
+  Promise.allSettled([populateCattleDropdown(), loadAlerts()]);
+});
+</script>
+{% endblock %}

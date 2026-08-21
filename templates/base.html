@@ -1,0 +1,393 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+
+  {# ── SEO ─────────────────────────────────────────────────────────────── #}
+  <title>{% block title %}DairyMind — Smart Dairy Farm Management{% endblock %}</title>
+  <meta name="description" content="{% block meta_description %}DairyMind is an intelligent dairy farm management platform for tracking cattle, milk production, health, breeding, and costs.{% endblock %}">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="theme-color" content="#1a4731">
+
+  {# ── Favicons ─────────────────────────────────────────────────────────── #}
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐄</text></svg>">
+
+  {# ── Bootstrap 5.3 CSS ────────────────────────────────────────────────── #}
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+    integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
+    crossorigin="anonymous"
+  >
+
+  {# ── Bootstrap Icons ──────────────────────────────────────────────────── #}
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
+  >
+
+  {# ── DairyMind custom CSS ─────────────────────────────────────────────── #}
+  <link rel="stylesheet" href="{% static 'css/dairymind.css' %}">
+
+  {# ── Extra head content (per-page CSS, etc.) ──────────────────────────── #}
+  {% block extra_head %}{% endblock %}
+</head>
+
+<body>
+
+{# ════════════════════════════════════════════════════════════════════════════ #}
+{# APP SHELL                                                                   #}
+{# ════════════════════════════════════════════════════════════════════════════ #}
+<div class="dm-shell">
+
+  {# ── Mobile overlay (closes sidebar) ───────────────────────────────────── #}
+  <div class="dm-overlay" id="dmOverlay" aria-hidden="true"></div>
+
+  {# ══════════════════════════════════════════════════════════════════════════ #}
+  {# SIDEBAR                                                                   #}
+  {# ══════════════════════════════════════════════════════════════════════════ #}
+  <nav class="dm-sidebar" id="dmSidebar" aria-label="Main navigation">
+
+    {# Brand #}
+    <a href="/" class="dm-sidebar__brand" id="sidebarBrand">
+      <div class="dm-sidebar__logo-icon" aria-hidden="true">🐄</div>
+      <div class="dm-sidebar__brand-text">
+        <span class="dm-sidebar__brand-name">DairyMind</span>
+        <span class="dm-sidebar__brand-tag">Farm Intelligence</span>
+      </div>
+    </a>
+
+    {# Navigation #}
+    <div class="dm-nav" role="list">
+
+      <div class="dm-sidebar__section-label">Main Menu</div>
+
+      <a href="/"
+         class="dm-nav__item {% block nav_dashboard %}{% endblock %}"
+         role="listitem"
+         id="navDashboard"
+         aria-label="Dashboard">
+        <span class="dm-nav__icon" aria-hidden="true">🏠</span>
+        <span class="dm-nav__label">Dashboard</span>
+      </a>
+
+      <a href="/cattle/"
+         class="dm-nav__item {% block nav_cattle %}{% endblock %}"
+         role="listitem"
+         id="navCattle"
+         aria-label="Cattle Registry">
+        <span class="dm-nav__icon" aria-hidden="true">🐮</span>
+        <span class="dm-nav__label">Cattle Registry</span>
+      </a>
+
+      <a href="/milk/"
+         class="dm-nav__item {% block nav_milk %}{% endblock %}"
+         role="listitem"
+         id="navMilk"
+         aria-label="Milk Tracker">
+        <span class="dm-nav__icon" aria-hidden="true">🥛</span>
+        <span class="dm-nav__label">Milk Tracker</span>
+      </a>
+
+      <a href="/health/"
+         class="dm-nav__item {% block nav_health %}{% endblock %}"
+         role="listitem"
+         id="navHealth"
+         aria-label="Health Alerts">
+        <span class="dm-nav__icon" aria-hidden="true">🚨</span>
+        <span class="dm-nav__label">Health Alerts</span>
+      </a>
+
+      <a href="/forecast/"
+         class="dm-nav__item {% block nav_forecast %}{% endblock %}"
+         role="listitem"
+         id="navForecast"
+         aria-label="Production Forecast">
+        <span class="dm-nav__icon" aria-hidden="true">📈</span>
+        <span class="dm-nav__label">Production Forecast</span>
+      </a>
+
+      <a href="/vet-reports/"
+         class="dm-nav__item {% block nav_vetreports %}{% endblock %}"
+         role="listitem"
+         id="navVetReports"
+         aria-label="Vet Reports">
+        <span class="dm-nav__icon" aria-hidden="true">📋</span>
+        <span class="dm-nav__label">Vet Reports</span>
+      </a>
+
+      <a href="/costs/"
+         class="dm-nav__item {% block nav_costs %}{% endblock %}"
+         role="listitem"
+         id="navCosts"
+         aria-label="Cost Optimizer">
+        <span class="dm-nav__icon" aria-hidden="true">💰</span>
+        <span class="dm-nav__label">Cost Optimizer</span>
+      </a>
+
+      <a href="/breeding/"
+         class="dm-nav__item {% block nav_breeding %}{% endblock %}"
+         role="listitem"
+         id="navBreeding"
+         aria-label="Breeding Manager">
+        <span class="dm-nav__icon" aria-hidden="true">🐄♀</span>
+        <span class="dm-nav__label">Breeding Manager</span>
+      </a>
+
+      <div class="dm-sidebar__section-label" style="margin-top:8px;">System</div>
+
+      <a href="/settings/"
+         class="dm-nav__item {% block nav_settings %}{% endblock %}"
+         role="listitem"
+         id="navSettings"
+         aria-label="Settings">
+        <span class="dm-nav__icon" aria-hidden="true">⚙️</span>
+        <span class="dm-nav__label">Settings</span>
+      </a>
+
+    </div>{# /.dm-nav #}
+
+    {# Footer #}
+    <div class="dm-sidebar__footer">
+      DairyMind &copy; {% now "Y" %}
+    </div>
+
+  </nav>{# /.dm-sidebar #}
+
+
+  {# ══════════════════════════════════════════════════════════════════════════ #}
+  {# MAIN AREA                                                                 #}
+  {# ══════════════════════════════════════════════════════════════════════════ #}
+  <div class="dm-main" id="dmMain">
+
+    {# ── Top Navbar ─────────────────────────────────────────────────────── #}
+    <header class="dm-topbar" role="banner">
+
+      {# Hamburger — mobile only #}
+      <button
+        class="dm-topbar__toggle"
+        id="dmSidebarToggle"
+        type="button"
+        aria-controls="dmSidebar"
+        aria-expanded="false"
+        aria-label="Toggle navigation">
+        <i class="bi bi-list" aria-hidden="true"></i>
+      </button>
+
+      {# Page title / breadcrumb area #}
+      <div class="dm-topbar__breadcrumb">
+        <p class="dm-topbar__farm-name mb-0">
+          <i class="bi bi-geo-alt-fill me-1" style="color:var(--dm-green-500)" aria-hidden="true"></i>
+          {% block farm_name %}Green Meadows Farm{% endblock %}
+        </p>
+        <h1 class="dm-topbar__page-title">{% block page_title %}Dashboard{% endblock %}</h1>
+      </div>
+
+      {# Right actions #}
+      <div class="dm-topbar__actions">
+
+        {# Notification Bell #}
+        <button
+          class="dm-notification-btn"
+          id="dmNotificationBtn"
+          type="button"
+          aria-label="View alerts"
+          data-bs-toggle="tooltip"
+          data-bs-placement="bottom"
+          title="Active alerts"
+          onclick="window.location.href='/health/'"
+        >
+          <i class="bi bi-bell" aria-hidden="true"></i>
+          <span
+            class="dm-notification-badge"
+            id="dmAlertBadge"
+            aria-live="polite"
+            aria-label="unresolved alert count">
+            {# Populated by JS from /api/alerts/ #}
+          </span>
+        </button>
+
+        {# User chip #}
+        {% if user.is_authenticated %}
+        <div class="dropdown">
+          <button
+            class="dm-user-chip"
+            id="dmUserMenu"
+            type="button"
+            data-bs-toggle="dropdown"
+            aria-expanded="false"
+            aria-haspopup="true"
+            aria-label="User menu">
+            <div class="dm-user-chip__avatar" aria-hidden="true">
+              {{ user.get_full_name|first|upper|default:user.username|first|upper }}
+            </div>
+            <span class="dm-user-chip__name">
+              {{ user.get_full_name|default:user.username }}
+            </span>
+            <i class="bi bi-chevron-down ms-1" style="font-size:.7rem;color:var(--dm-gray-500)" aria-hidden="true"></i>
+          </button>
+          <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 mt-2" aria-labelledby="dmUserMenu">
+            <li>
+              <a class="dropdown-item d-flex align-items-center gap-2 py-2" href="/profile/">
+                <i class="bi bi-person-circle text-dm-green" aria-hidden="true"></i> My Profile
+              </a>
+            </li>
+            <li>
+              <a class="dropdown-item d-flex align-items-center gap-2 py-2" href="/settings/">
+                <i class="bi bi-gear text-dm-green" aria-hidden="true"></i> Settings
+              </a>
+            </li>
+            <li><hr class="dropdown-divider my-1"></li>
+            <li>
+              <a class="dropdown-item d-flex align-items-center gap-2 py-2 text-danger" href="/logout/">
+                <i class="bi bi-box-arrow-right" aria-hidden="true"></i> Sign Out
+              </a>
+            </li>
+          </ul>
+        </div>
+        {% else %}
+        <a href="/login/" class="dm-btn dm-btn--primary dm-btn--sm">
+          <i class="bi bi-box-arrow-in-right" aria-hidden="true"></i> Sign In
+        </a>
+        {% endif %}
+
+      </div>{# /.dm-topbar__actions #}
+    </header>{# /.dm-topbar #}
+
+    {# ── Django Messages ────────────────────────────────────────────────── #}
+    {% if messages %}
+    <div class="px-4 pt-3" role="status" aria-live="polite">
+      {% for message in messages %}
+      <div class="dm-alert dm-alert--{% if message.tags == 'error' %}danger{% elif message.tags %}{{ message.tags }}{% else %}info{% endif %} alert-dismissible"
+           role="alert">
+        <i class="bi bi-{% if message.tags == 'success' %}check-circle-fill{% elif message.tags == 'error' or message.tags == 'danger' %}exclamation-triangle-fill{% elif message.tags == 'warning' %}exclamation-circle-fill{% else %}info-circle-fill{% endif %} flex-shrink-0 mt-1"
+           aria-hidden="true"></i>
+        <div>{{ message }}</div>
+        <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert" aria-label="Close"></button>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {# ── Page content ───────────────────────────────────────────────────── #}
+    <main class="dm-content" id="dmContent" role="main" tabindex="-1">
+      {% block content %}
+      {# Child templates inject their content here #}
+      {% endblock %}
+    </main>
+
+  </div>{# /.dm-main #}
+</div>{# /.dm-shell #}
+
+
+{# ════════════════════════════════════════════════════════════════════════════ #}
+{# SCRIPTS                                                                     #}
+{# ════════════════════════════════════════════════════════════════════════════ #}
+
+{# Bootstrap 5 Bundle (Popper included) #}
+<script
+  src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+  integrity="sha384-YvpcrYf0tY3lHB60NNkmXc4s9bIOgUxi8T/jzmTA37Wk/9HyBIYNd7Rg7UKAhX8"
+  crossorigin="anonymous"></script>
+
+{# Chart.js #}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+
+{# ── DairyMind core JS ────────────────────────────────────────────────────── #}
+<script>
+(function () {
+  'use strict';
+
+  /* ── Sidebar toggle (mobile) ─────────────────────────────────────────── */
+  const sidebar  = document.getElementById('dmSidebar');
+  const overlay  = document.getElementById('dmOverlay');
+  const toggle   = document.getElementById('dmSidebarToggle');
+
+  function openSidebar() {
+    sidebar.classList.add('is-open');
+    overlay.classList.add('is-visible');
+    toggle.setAttribute('aria-expanded', 'true');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeSidebar() {
+    sidebar.classList.remove('is-open');
+    overlay.classList.remove('is-visible');
+    toggle.setAttribute('aria-expanded', 'false');
+    document.body.style.overflow = '';
+  }
+
+  if (toggle) toggle.addEventListener('click', function () {
+    sidebar.classList.contains('is-open') ? closeSidebar() : openSidebar();
+  });
+
+  if (overlay) overlay.addEventListener('click', closeSidebar);
+
+  /* Close sidebar on ESC */
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && sidebar.classList.contains('is-open')) closeSidebar();
+  });
+
+  /* ── Fetch unresolved alert count and update badge ───────────────────── */
+  const badge = document.getElementById('dmAlertBadge');
+
+  function fetchAlertCount() {
+    if (!badge) return;
+    fetch('/api/alerts/?is_resolved=false', {
+      headers: {
+        'Accept': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+      },
+      credentials: 'same-origin',
+    })
+    .then(function (res) {
+      if (!res.ok) throw new Error('Network response was not ok');
+      return res.json();
+    })
+    .then(function (data) {
+      /* DRF list endpoints return { count, results } */
+      const count = (data.count !== undefined) ? data.count : (data.results ? data.results.length : 0);
+      badge.textContent = count > 99 ? '99+' : (count > 0 ? String(count) : '');
+      badge.setAttribute('aria-label', count + ' unresolved alert' + (count !== 1 ? 's' : ''));
+      if (count === 0) {
+        badge.style.display = 'none';
+      } else {
+        badge.style.display = '';
+      }
+    })
+    .catch(function () {
+      /* Silently fail — badge stays empty if API is unreachable */
+    });
+  }
+
+  /* Initial fetch on load */
+  fetchAlertCount();
+
+  /* Refresh every 60 seconds */
+  setInterval(fetchAlertCount, 60_000);
+
+  /* ── Bootstrap tooltips — init all [data-bs-toggle="tooltip"] ────────── */
+  var tooltipEls = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+  tooltipEls.forEach(function (el) {
+    new bootstrap.Tooltip(el, { trigger: 'hover' });
+  });
+
+  /* ── Auto-dismiss Django messages after 5 seconds ────────────────────── */
+  document.querySelectorAll('.dm-alert.alert-dismissible').forEach(function (alertEl) {
+    setTimeout(function () {
+      var bsAlert = bootstrap.Alert.getOrCreateInstance(alertEl);
+      bsAlert && bsAlert.close();
+    }, 5000);
+  });
+
+})();
+</script>
+
+{# ── Per-page extra scripts ───────────────────────────────────────────────── #}
+{% block extra_scripts %}{% endblock %}
+
+</body>
+</html>

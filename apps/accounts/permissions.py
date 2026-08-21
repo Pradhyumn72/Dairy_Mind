@@ -1,56 +1,53 @@
 """
-Reusable DRF permission classes enforcing role-based access control.
+Custom DRF permission classes based on Profile roles.
 """
-from rest_framework.permissions import BasePermission
+from rest_framework import permissions
 
-
-class IsAdmin(BasePermission):
-    """Grants access only to Farm_Users with the Admin role."""
-    message = "You do not have permission to perform this action. Admin role required."
-
-    def has_permission(self, request, view):
-        return bool(request.user and request.user.is_authenticated and request.user.is_admin)
-
-
-class IsFarmManager(BasePermission):
-    """Grants access to Farm_Manager and Admin roles."""
-    message = "Farm Manager or Admin role required."
+class IsOwnerOrReadOnly(permissions.BasePermission):
+    """
+    Allows read-only access for any authenticated user.
+    Allows creation (POST) for OWNER and WORKER.
+    Restricts DELETE (and potentially PUT/PATCH) to OWNER only.
+    """
 
     def has_permission(self, request, view):
-        return bool(
-            request.user
-            and request.user.is_authenticated
-            and (request.user.is_farm_manager or request.user.is_admin)
-        )
+        if not request.user or not request.user.is_authenticated:
+            return False
+        return True
+
+    def has_object_permission(self, request, view, obj):
+        # Read permissions are allowed to any request,
+        if request.method in permissions.SAFE_METHODS:
+            return True
+
+        profile = getattr(request.user, 'profile', None)
+        if not profile:
+            return False
+
+        if request.method == 'DELETE':
+            return profile.is_owner
+        
+        # Depending on exact semantics, we allow WORKERs to update objects
+        # as well as OWNERs. If we wanted to restrict updates to OWNERs only, 
+        # we would add `if request.method in ['PUT', 'PATCH']: return profile.is_owner` here.
+        return True
 
 
-class IsVet(BasePermission):
-    """Grants access to Vet and Admin roles."""
-    message = "Vet or Admin role required."
-
-    def has_permission(self, request, view):
-        return bool(
-            request.user
-            and request.user.is_authenticated
-            and (request.user.is_vet or request.user.is_admin)
-        )
-
-
-class IsAdminOrFarmManager(BasePermission):
-    """Grants access to Admin and Farm_Manager roles."""
-    message = "Admin or Farm Manager role required."
-
-    def has_permission(self, request, view):
-        return bool(
-            request.user
-            and request.user.is_authenticated
-            and (request.user.is_admin or request.user.is_farm_manager)
-        )
-
-
-class IsAnyRole(BasePermission):
-    """Grants access to any authenticated Farm_User regardless of role."""
-    message = "Authentication required."
+class IsVetOrOwner(permissions.BasePermission):
+    """
+    Allows access only to VET or OWNER roles.
+    Useful for sensitive operations like uploading Vet Reports.
+    """
 
     def has_permission(self, request, view):
-        return bool(request.user and request.user.is_authenticated)
+        if not request.user or not request.user.is_authenticated:
+            return False
+            
+        profile = getattr(request.user, 'profile', None)
+        if not profile:
+            return False
+            
+        return profile.is_vet or profile.is_owner
+
+    def has_object_permission(self, request, view, obj):
+        return self.has_permission(request, view)

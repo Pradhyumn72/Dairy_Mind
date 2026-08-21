@@ -1,0 +1,412 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Breeding Manager — DairyMind{% endblock %}
+{% block meta_description %}Manage heat cycles, AI events, and pregnancy tracking with ML predictions.{% endblock %}
+{% block nav_breeding %}active{% endblock %}
+{% block page_title %}Breeding Manager{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'css/dairymind.css' %}">
+<style>
+  /* ── Farm Overview Cards ────────────────────────────────────────────────── */
+  .bm-overview-strip {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .bm-stat-card {
+    background: var(--dm-white);
+    border: 1px solid var(--dm-gray-200);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    box-shadow: var(--shadow-sm);
+  }
+  .bm-stat-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    flex-shrink: 0;
+  }
+  .bm-stat-val {
+    font-family: var(--font-display);
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: var(--dm-gray-900);
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  .bm-stat-lbl {
+    font-size: .8rem;
+    font-weight: 600;
+    color: var(--dm-gray-500);
+    text-transform: uppercase;
+    letter-spacing: .5px;
+  }
+
+  /* ── Section Cards ──────────────────────────────────────────────────────── */
+  .bm-section-card {
+    background: var(--dm-white);
+    border: 1px solid var(--dm-gray-200);
+    border-radius: var(--radius-lg);
+    margin-bottom: 24px;
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+  }
+  .bm-section-header {
+    background: var(--dm-gray-50);
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--dm-gray-200);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .bm-section-title {
+    font-family: var(--font-display);
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--dm-gray-900);
+    margin: 0;
+  }
+  
+  /* ── Pregnancy Cards ────────────────────────────────────────────────────── */
+  .preg-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+    padding: 20px;
+  }
+  .preg-card {
+    border: 1px solid var(--dm-gray-200);
+    border-radius: var(--radius-md);
+    padding: 16px;
+    position: relative;
+    box-shadow: 0 1px 3px rgba(0,0,0,.04);
+  }
+  .preg-card-title {
+    font-weight: 700;
+    font-size: 1rem;
+    margin-bottom: 4px;
+    display: flex;
+    justify-content: space-between;
+  }
+  .preg-days-badge {
+    font-size: .75rem;
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-weight: 600;
+  }
+  .preg-days-ok { background: var(--dm-blue-light); color: var(--dm-blue); }
+  .preg-days-soon { background: #fff0f0; color: var(--dm-red); border: 1px solid #fca5a5; }
+  .preg-meta {
+    font-size: .8rem;
+    color: var(--dm-gray-500);
+    margin-bottom: 12px;
+  }
+  .preg-progress-wrap {
+    height: 8px;
+    background: var(--dm-gray-100);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 6px;
+  }
+  .preg-progress-bar {
+    height: 100%;
+    background: var(--dm-green-500);
+    transition: width .3s ease;
+  }
+  .preg-progress-lbl {
+    font-size: .75rem;
+    color: var(--dm-gray-600);
+    display: flex;
+    justify-content: space-between;
+  }
+
+  /* ── Highlight Row ──────────────────────────────────────────────────────── */
+  .row-highlight { background-color: #fffff0 !important; }
+  
+  /* ── AI Circular Gauge ──────────────────────────────────────────────────── */
+  .gauge-wrap {
+    position: relative;
+    width: 140px;
+    height: 140px;
+    margin: 0 auto 16px;
+  }
+  .gauge-circle {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: conic-gradient(var(--gauge-color) var(--gauge-deg), var(--dm-gray-100) 0);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .gauge-inner {
+    width: 116px;
+    height: 116px;
+    background: #fff;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+  }
+  .gauge-val { font-family: var(--font-display); font-size: 2rem; font-weight: 800; line-height: 1; }
+  .gauge-lbl { font-size: .75rem; color: var(--dm-gray-500); font-weight: 600; }
+
+</style>
+{% endblock %}
+
+{% block content %}
+{# ── Header ─────────────────────────────────────────────────────────────── #}
+<div class="dm-page-header">
+  <div>
+    <h2 class="dm-page-header__title">🧬 Breeding Manager</h2>
+    <p class="dm-page-header__subtitle">Manage heat cycles, insemination, and monitor pregnancies.</p>
+  </div>
+</div>
+
+{# ── Section 1: Overview Strip ──────────────────────────────────────────── #}
+<div class="bm-overview-strip" id="overviewStrip" aria-busy="true">
+  {% for _ in "1234" %}
+  <div class="bm-stat-card">
+    <div class="dm-skeleton" style="width:48px;height:48px;border-radius:8px"></div>
+    <div style="flex:1">
+      <div class="dm-skeleton" style="height:24px;width:60%;margin-bottom:6px;border-radius:4px"></div>
+      <div class="dm-skeleton" style="height:12px;width:90%;border-radius:4px"></div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+{# ── Section 2: Heat Cycle Tracker ──────────────────────────────────────── #}
+<div class="bm-section-card">
+  <div class="bm-section-header">
+    <h2 class="bm-section-title"><i class="bi bi-thermometer-sun text-warning me-2"></i>Heat Cycle Tracker</h2>
+    <button class="dm-btn dm-btn--outline dm-btn--sm" data-bs-toggle="modal" data-bs-target="#modalHeatLog">
+      <i class="bi bi-plus-lg"></i> Log Heat
+    </button>
+  </div>
+  <div class="dm-table-wrap" style="border:none;box-shadow:none;border-radius:0">
+    <table class="dm-table" id="heatTable">
+      <thead>
+        <tr>
+          <th>Cattle</th>
+          <th>Last Heat Date</th>
+          <th>Avg Cycle (Days)</th>
+          <th>Predicted Next Heat</th>
+          <th>Status</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="heatTbody">
+        {% for _ in "123" %}
+        <tr><td colspan="6"><div class="dm-skeleton" style="height:20px;border-radius:4px"></div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# ── Section 3: AI Events ───────────────────────────────────────────────── #}
+<div class="bm-section-card">
+  <div class="bm-section-header">
+    <h2 class="bm-section-title"><i class="bi bi-moisture text-info me-2"></i>AI (Insemination) Events</h2>
+    <button class="dm-btn dm-btn--outline dm-btn--sm" data-bs-toggle="modal" data-bs-target="#modalAI">
+      <i class="bi bi-plus-lg"></i> Record AI
+    </button>
+  </div>
+  <div class="dm-table-wrap" style="border:none;box-shadow:none;border-radius:0">
+    <table class="dm-table" id="aiTable">
+      <thead>
+        <tr>
+          <th>Cattle</th>
+          <th>AI Date</th>
+          <th>Bull / Batch</th>
+          <th>Technician</th>
+          <th>Outcome</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="aiTbody">
+        {% for _ in "123" %}
+        <tr><td colspan="6"><div class="dm-skeleton" style="height:20px;border-radius:4px"></div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# ── Section 4: Pregnancy Tracker ───────────────────────────────────────── #}
+<div class="bm-section-card">
+  <div class="bm-section-header">
+    <h2 class="bm-section-title"><i class="bi bi-heart-pulse-fill text-danger me-2"></i>Pregnancy Tracker</h2>
+  </div>
+  <div class="preg-grid" id="pregGrid">
+    {% for _ in "12" %}
+    <div class="preg-card">
+      <div class="dm-skeleton" style="height:20px;width:60%;margin-bottom:8px;border-radius:4px"></div>
+      <div class="dm-skeleton" style="height:12px;width:40%;margin-bottom:16px;border-radius:4px"></div>
+      <div class="dm-skeleton" style="height:8px;width:100%;margin-bottom:6px;border-radius:4px"></div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+{# ── Section 5: AI Prediction Panel ─────────────────────────────────────── #}
+<div class="bm-section-card">
+  <div class="bm-section-header">
+    <h2 class="bm-section-title"><i class="bi bi-magic text-dm-green me-2"></i>ML AI Prediction & Windows</h2>
+    <select class="form-select form-select-sm" style="width:250px" id="predCattleSelect">
+      <option value="">Select cattle to analyze...</option>
+    </select>
+  </div>
+  <div class="row g-0">
+    <div class="col-md-6 border-end">
+      <div class="p-4" id="predWindowPanel">
+        <div class="text-center text-muted py-4"><i class="bi bi-arrow-up-circle fs-3 d-block mb-2"></i>Select cattle above</div>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="p-4" id="predSuccessPanel">
+        <div class="text-center text-muted py-4"><i class="bi bi-arrow-up-circle fs-3 d-block mb-2"></i>Select cattle above</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── Modals ─────────────────────────────────────────────────────────────── #}
+{# Log Heat Modal #}
+<div class="modal fade" id="modalHeatLog" tabindex="-1">
+  <div class="modal-dialog">
+    <form class="modal-content" id="formHeatLog">
+      <div class="modal-header">
+        <h5 class="modal-title">Log Heat Observed</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label">Cattle</label>
+          <select name="cattle_id" class="form-select cattle-select-options" required></select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Date</label>
+          <input type="date" name="observed_date" class="form-control" required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Intensity</label>
+          <div class="d-flex gap-3">
+            <div class="form-check"><input class="form-check-input" type="radio" name="intensity" value="WEAK" required> <label class="form-check-label">Weak</label></div>
+            <div class="form-check"><input class="form-check-input" type="radio" name="intensity" value="MODERATE"> <label class="form-check-label">Moderate</label></div>
+            <div class="form-check"><input class="form-check-input" type="radio" name="intensity" value="STRONG"> <label class="form-check-label">Strong</label></div>
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Signs (optional)</label>
+          <textarea name="signs" class="form-control" rows="2"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer border-0">
+        <button type="button" class="dm-btn dm-btn--outline" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" class="dm-btn dm-btn--primary">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{# Record AI Modal #}
+<div class="modal fade" id="modalAI" tabindex="-1">
+  <div class="modal-dialog">
+    <form class="modal-content" id="formAI">
+      <div class="modal-header">
+        <h5 class="modal-title">Record New AI Event</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label">Cattle</label>
+          <select name="cattle_id" class="form-select cattle-select-options" required></select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">AI Date</label>
+          <input type="date" name="ai_date" class="form-control" required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Bull Name / Breed</label>
+          <input type="text" name="semen_bull_name" class="form-control" required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Semen Batch ID</label>
+          <input type="text" name="semen_batch_id" class="form-control" required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Technician</label>
+          <input type="text" name="technician_name" class="form-control" required>
+        </div>
+      </div>
+      <div class="modal-footer border-0">
+        <button type="button" class="dm-btn dm-btn--outline" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" class="dm-btn dm-btn--primary">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{# Record Calving Modal #}
+<div class="modal fade" id="modalCalving" tabindex="-1">
+  <div class="modal-dialog modal-sm">
+    <form class="modal-content" id="formCalving">
+      <input type="hidden" name="pregnancy_id" id="calvPregId">
+      <div class="modal-header">
+        <h5 class="modal-title">Record Calving</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label">Actual Calving Date</label>
+          <input type="date" name="actual_calving_date" class="form-control" required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Calf Gender</label>
+          <select name="calf_gender" class="form-select">
+            <option value="Unknown">Unknown / Not applicable</option>
+            <option value="Female">Female (Heifer)</option>
+            <option value="Male">Male (Bull)</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer border-0">
+        <button type="button" class="dm-btn dm-btn--outline" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" class="dm-btn dm-btn--primary">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{# Toast #}
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+  <div id="bmToast" class="toast text-white border-0" role="alert">
+    <div class="d-flex">
+      <div class="toast-body d-flex align-items-center gap-2">
+        <i class="bi bi-check-circle-fill fs-5" id="bmToastIcon"></i> <span id="bmToastMsg"></span>
+      </div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{% static 'js/breeding.js' %}"></script>
+{% endblock %}

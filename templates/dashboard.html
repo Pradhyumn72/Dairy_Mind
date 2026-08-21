@@ -1,0 +1,387 @@
+{% extends "base.html" %}
+{% load static %}
+
+{# ── Page meta ─────────────────────────────────────────────────────────────── #}
+{% block title %}Dashboard — DairyMind{% endblock %}
+{% block meta_description %}Farm performance overview: cattle, milk production, health alerts, profit, and breeding status at a glance.{% endblock %}
+
+{# ── Sidebar active state ──────────────────────────────────────────────────── #}
+{% block nav_dashboard %}active{% endblock %}
+
+{# ── Topbar labels ─────────────────────────────────────────────────────────── #}
+{% block page_title %}Dashboard{% endblock %}
+
+{# ── Extra head ────────────────────────────────────────────────────────────── #}
+{% block extra_head %}
+<style>
+  /* ── Skeleton sizes ─────────────────────────────────────────────────────── */
+  .sk-value  { height: 42px; width: 80%; border-radius: 6px; }
+  .sk-sub    { height: 14px; width: 55%; border-radius: 4px; margin-top: 8px; }
+  .sk-label  { height: 13px; width: 65%; border-radius: 4px; margin-bottom: 10px; }
+  .sk-chart  { height: 240px; border-radius: 10px; }
+  .sk-row    { height: 38px; border-radius: 6px; margin-bottom: 8px; }
+  .sk-alert  { height: 68px; border-radius: 8px; margin-bottom: 8px; }
+
+  /* ── Chart canvas wrapper ───────────────────────────────────────────────── */
+  .dm-chart-canvas-wrap { position: relative; height: 240px; }
+
+  /* ── Stat card value ────────────────────────────────────────────────────── */
+  .stat-value {
+    font-family: var(--font-display);
+    font-size:   2.1rem;
+    font-weight: 800;
+    color:       var(--dm-gray-900);
+    line-height: 1.1;
+  }
+
+  /* ── Breeding card — pink accent ────────────────────────────────────────── */
+  .stat-breeding .dm-stat-card__icon { background: #fff0f6; }
+  .stat-breeding .stat-value         { color: #c0396e; }
+
+  /* ── Section divider ────────────────────────────────────────────────────── */
+  .dm-section-title {
+    font-family:   var(--font-display);
+    font-size:     1.05rem;
+    font-weight:   700;
+    color:         var(--dm-gray-900);
+    margin-bottom: 16px;
+    display:       flex;
+    align-items:   center;
+    gap:           8px;
+  }
+
+  .dm-section-title::after {
+    content:    '';
+    flex:       1;
+    height:     1px;
+    background: var(--dm-gray-200);
+    margin-left: 4px;
+  }
+
+  /* ── Table rank column ──────────────────────────────────────────────────── */
+  .fw-600 { font-weight: 600 !important; }
+
+  /* ── Live clock chip ────────────────────────────────────────────────────── */
+  .dm-clock-chip {
+    background:    var(--dm-gray-100);
+    border:        1px solid var(--dm-gray-200);
+    border-radius: var(--radius-xl);
+    padding:       3px 12px;
+    font-size:     0.78rem;
+    font-weight:   600;
+    color:         var(--dm-gray-700);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.5px;
+  }
+
+  /* ── Responsive chart height ────────────────────────────────────────────── */
+  @media (max-width:575px) {
+    .dm-chart-canvas-wrap { height: 200px; }
+    .stat-value            { font-size: 1.75rem; }
+  }
+</style>
+{% endblock %}
+
+
+{# ════════════════════════════════════════════════════════════════════════════ #}
+{# CONTENT                                                                     #}
+{# ════════════════════════════════════════════════════════════════════════════ #}
+{% block content %}
+
+{# ── Page header ─────────────────────────────────────────────────────────── #}
+<div class="dm-page-header">
+  <div>
+    <h2 class="dm-page-header__title">Farm Overview</h2>
+    <p class="dm-page-header__subtitle">
+      Live metrics &mdash;
+      <span class="dm-clock-chip" id="dmLiveClock" aria-live="polite">--:--:--</span>
+    </p>
+  </div>
+  <div class="d-flex align-items-center gap-2 flex-wrap">
+    <a href="/health/" class="dm-btn dm-btn--outline dm-btn--sm" id="btnViewAlerts">
+      <i class="bi bi-bell-fill" aria-hidden="true"></i> View Alerts
+    </a>
+    <a href="/cattle/add/" class="dm-btn dm-btn--primary dm-btn--sm" id="btnAddCattle">
+      <i class="bi bi-plus-lg" aria-hidden="true"></i> Add Cattle
+    </a>
+  </div>
+</div>
+
+
+{# ════════════════════════════════════════════════════════════════════════════ #}
+{# ROW 1 — STAT CARDS                                                         #}
+{# ════════════════════════════════════════════════════════════════════════════ #}
+<div class="row g-3 mb-4" role="region" aria-label="Key metrics">
+
+  {# ── Card 1: Total Active Cattle ──────────────────────────────────────── #}
+  <div class="col-6 col-md-4 col-xl">
+    <div class="dm-stat-card dm-hover-lift h-100" id="statCattle">
+      <div class="dm-stat-card__icon dm-stat-card__icon--green" aria-hidden="true">🐮</div>
+      <div class="dm-stat-card__body">
+        <p class="dm-stat-card__label">Active Cattle</p>
+
+        {# Skeleton #}
+        <div id="statCattleSkeleton">
+          <div class="dm-skeleton sk-value mb-1"></div>
+          <div class="dm-skeleton sk-sub"></div>
+        </div>
+
+        {# Real content — hidden until data loads #}
+        <div id="statCattleContent" style="display:none">
+          <div class="stat-value" id="statCattleValue" aria-live="polite">—</div>
+          <div class="dm-stat-card__delta dm-stat-card__delta--up mt-1">Total on farm</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# ── Card 2: Today's Milk Production ─────────────────────────────────── #}
+  <div class="col-6 col-md-4 col-xl">
+    <div class="dm-stat-card dm-hover-lift h-100" id="statMilk">
+      <div class="dm-stat-card__icon dm-stat-card__icon--blue" aria-hidden="true">🥛</div>
+      <div class="dm-stat-card__body">
+        <p class="dm-stat-card__label">Today's Milk</p>
+
+        <div id="statMilkSkeleton">
+          <div class="dm-skeleton sk-value mb-1"></div>
+          <div class="dm-skeleton sk-sub"></div>
+        </div>
+
+        <div id="statMilkContent" style="display:none">
+          <div class="stat-value" id="statMilkValue" aria-live="polite">—</div>
+          <div class="dm-stat-card__delta mt-1" id="statMilkSub">litres today</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# ── Card 3: Unresolved Health Alerts ────────────────────────────────── #}
+  <div class="col-6 col-md-4 col-xl">
+    <div class="dm-stat-card dm-hover-lift h-100" id="statAlerts">
+      <div class="dm-stat-card__icon dm-stat-card__icon--red" aria-hidden="true">🚨</div>
+      <div class="dm-stat-card__body">
+        <p class="dm-stat-card__label">Health Alerts</p>
+
+        <div id="statAlertsSkeleton">
+          <div class="dm-skeleton sk-value mb-1"></div>
+          <div class="dm-skeleton sk-sub"></div>
+        </div>
+
+        <div id="statAlertsContent" style="display:none">
+          <div class="stat-value" id="statAlertsValue" aria-live="polite">—</div>
+          <div class="dm-stat-card__delta dm-stat-card__delta--down mt-1">Unresolved</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# ── Card 4: This Month's Profit ──────────────────────────────────────── #}
+  <div class="col-6 col-md-4 col-xl">
+    <div class="dm-stat-card dm-hover-lift h-100" id="statProfit">
+      <div class="dm-stat-card__icon dm-stat-card__icon--amber" aria-hidden="true">💰</div>
+      <div class="dm-stat-card__body">
+        <p class="dm-stat-card__label">Monthly Profit</p>
+
+        <div id="statProfitSkeleton">
+          <div class="dm-skeleton sk-value mb-1"></div>
+          <div class="dm-skeleton sk-sub"></div>
+        </div>
+
+        <div id="statProfitContent" style="display:none">
+          <div class="stat-value" id="statProfitValue" aria-live="polite">—</div>
+          <div class="dm-stat-card__delta mt-1" id="statProfitSub">This month</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# ── Card 5: Cows Due for Breeding ───────────────────────────────────── #}
+  <div class="col-6 col-md-4 col-xl">
+    <div class="dm-stat-card dm-hover-lift stat-breeding h-100" id="statBreeding">
+      <div class="dm-stat-card__icon" aria-hidden="true">🐄♀</div>
+      <div class="dm-stat-card__body">
+        <p class="dm-stat-card__label">Due Breeding</p>
+
+        <div id="statBreedingSkeleton">
+          <div class="dm-skeleton sk-value mb-1"></div>
+          <div class="dm-skeleton sk-sub"></div>
+        </div>
+
+        <div id="statBreedingContent" style="display:none">
+          <div class="stat-value" id="statBreedingValue" aria-live="polite">—</div>
+          <div class="dm-stat-card__delta mt-1" style="color:#c0396e">Cows this week</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>{# /.row stat cards #}
+
+
+{# ════════════════════════════════════════════════════════════════════════════ #}
+{# ROW 2 — CHARTS                                                             #}
+{# ════════════════════════════════════════════════════════════════════════════ #}
+<div class="row g-3 mb-4" role="region" aria-label="Charts">
+
+  {# ── 30-day Milk Trend ───────────────────────────────────────────────── #}
+  <div class="col-12 col-lg-7">
+    <div class="dm-card h-100">
+      <div class="dm-card__header">
+        <h2 class="dm-card__title">
+          <i class="bi bi-graph-up-arrow text-dm-green me-2" aria-hidden="true"></i>
+          30-Day Milk Production Trend
+        </h2>
+        <span class="dm-badge dm-badge--green">Farm-wide</span>
+      </div>
+      <div class="dm-card__body pt-2">
+        {# Skeleton #}
+        <div class="dm-skeleton sk-chart" id="milkTrendSkeleton"></div>
+        {# Chart container — hidden until loaded #}
+        <div id="milkTrendWrap" style="display:none" id="milkTrendContainer">
+          <div class="dm-chart-canvas-wrap">
+            <canvas id="milkTrendChart" aria-label="30-day milk production line chart" role="img"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# ── Breed Distribution Donut ────────────────────────────────────────── #}
+  <div class="col-12 col-lg-5">
+    <div class="dm-card h-100">
+      <div class="dm-card__header">
+        <h2 class="dm-card__title">
+          <i class="bi bi-pie-chart-fill text-dm-green me-2" aria-hidden="true"></i>
+          Breed Distribution
+        </h2>
+        <span class="dm-badge dm-badge--gray">Active cattle</span>
+      </div>
+      <div class="dm-card__body">
+        {# Skeleton #}
+        <div id="breedDonutSkeleton">
+          <div class="dm-skeleton sk-chart mx-auto" style="width:200px;height:200px;border-radius:50%"></div>
+          <div class="d-flex gap-2 flex-wrap justify-content-center mt-3">
+            <div class="dm-skeleton" style="height:22px;width:80px;border-radius:20px;"></div>
+            <div class="dm-skeleton" style="height:22px;width:70px;border-radius:20px;"></div>
+            <div class="dm-skeleton" style="height:22px;width:90px;border-radius:20px;"></div>
+          </div>
+        </div>
+        {# Real content #}
+        <div id="breedDonutWrap" style="display:none" id="breedDonutContainer">
+          <div class="dm-chart-canvas-wrap" style="height:210px">
+            <canvas id="breedDonutChart" aria-label="Breed distribution donut chart" role="img"></canvas>
+          </div>
+          <div id="breedSummary" class="mt-3 text-center d-flex flex-wrap justify-content-center gap-1"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>{# /.row charts #}
+
+
+{# ════════════════════════════════════════════════════════════════════════════ #}
+{# ROW 3 — TABLE + ALERT LIST                                                 #}
+{# ════════════════════════════════════════════════════════════════════════════ #}
+<div class="row g-3" role="region" aria-label="Details">
+
+  {# ── Top 5 Milk Producers Today ──────────────────────────────────────── #}
+  <div class="col-12 col-lg-6">
+    <div class="dm-card h-100">
+      <div class="dm-card__header">
+        <h2 class="dm-card__title">
+          <i class="bi bi-trophy-fill" style="color:var(--dm-amber)" aria-hidden="true"></i>
+          &nbsp;Top Producers Today
+        </h2>
+        <a href="/milk/" class="dm-btn dm-btn--outline dm-btn--sm" id="btnViewMilk">
+          View all
+        </a>
+      </div>
+      <div class="dm-card__body p-0">
+
+        {# Skeleton rows #}
+        <div id="topProducersSkeleton" class="p-3">
+          <div class="dm-skeleton sk-row"></div>
+          <div class="dm-skeleton sk-row"></div>
+          <div class="dm-skeleton sk-row"></div>
+          <div class="dm-skeleton sk-row"></div>
+          <div class="dm-skeleton sk-row mb-0"></div>
+        </div>
+
+        {# Real table — hidden until loaded #}
+        <div class="dm-table-wrap" style="border:none;box-shadow:none;border-radius:0">
+          <table class="dm-table" aria-label="Top 5 milk producers today">
+            <thead>
+              <tr>
+                <th scope="col" class="text-center" style="width:48px;">#</th>
+                <th scope="col">Cattle</th>
+                <th scope="col">AM / PM</th>
+                <th scope="col">Total</th>
+              </tr>
+            </thead>
+            <tbody id="topProducersTbody" style="display:none"></tbody>
+          </table>
+        </div>
+
+      </div>
+      <div class="dm-card__footer d-flex align-items-center justify-content-between">
+        <small class="text-dm-muted">
+          <i class="bi bi-calendar-date me-1"></i>
+          Data for today, <strong id="footerDate">{{ today|date:"N j, Y"|default:"—" }}</strong>
+        </small>
+        <a href="/milk/add/" class="dm-btn dm-btn--primary dm-btn--sm" id="btnLogMilk">
+          <i class="bi bi-plus-lg"></i> Log Milk
+        </a>
+      </div>
+    </div>
+  </div>
+
+  {# ── Latest 5 Health Alerts ──────────────────────────────────────────── #}
+  <div class="col-12 col-lg-6">
+    <div class="dm-card h-100">
+      <div class="dm-card__header">
+        <h2 class="dm-card__title">
+          <i class="bi bi-shield-exclamation text-danger me-1" aria-hidden="true"></i>
+          Recent Health Alerts
+        </h2>
+        <a href="/health/" class="dm-btn dm-btn--outline dm-btn--sm" id="btnAllAlerts">
+          View all
+        </a>
+      </div>
+      <div class="dm-card__body">
+
+        {# Skeleton alerts #}
+        <div id="latestAlertsSkeleton">
+          <div class="dm-skeleton sk-alert"></div>
+          <div class="dm-skeleton sk-alert"></div>
+          <div class="dm-skeleton sk-alert"></div>
+          <div class="dm-skeleton sk-alert" style="height:50px;"></div>
+        </div>
+
+        {# Real alerts — hidden until loaded #}
+        <div id="latestAlertsContainer" style="display:none" role="list" aria-live="polite"></div>
+
+      </div>
+      <div class="dm-card__footer d-flex align-items-center justify-content-between">
+        <small class="text-dm-muted">
+          <i class="bi bi-info-circle me-1"></i>
+          Showing latest unresolved alerts
+        </small>
+        <a href="/health/add/" class="dm-btn dm-btn--outline dm-btn--sm" id="btnReportHealth">
+          <i class="bi bi-plus-lg"></i> Report
+        </a>
+      </div>
+    </div>
+  </div>
+
+</div>{# /.row details #}
+
+{% endblock %}
+
+
+{# ════════════════════════════════════════════════════════════════════════════ #}
+{# EXTRA SCRIPTS                                                               #}
+{# ════════════════════════════════════════════════════════════════════════════ #}
+{% block extra_scripts %}
+<script src="{% static 'js/dashboard.js' %}"></script>
+{% endblock %}

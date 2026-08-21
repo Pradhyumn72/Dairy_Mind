@@ -26,6 +26,7 @@ THIRD_PARTY_APPS = [
     "rest_framework",
     "rest_framework.authtoken",
     "corsheaders",
+    "django_filters",
     "django_celery_beat",
     "django_celery_results",
 ]
@@ -79,22 +80,28 @@ WSGI_APPLICATION = "dairymind.wsgi.application"
 # ── Database ─────────────────────────────────────────────────────────────────
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.mysql",
-        "NAME": config("DB_NAME", default="dairymind_db"),
-        "USER": config("DB_USER", default="root"),
-        "PASSWORD": config("DB_PASSWORD", default=""),
-        "HOST": config("DB_HOST", default="localhost"),
-        "PORT": config("DB_PORT", default="3306"),
-        "OPTIONS": {
-            "charset": "utf8mb4",
-            "init_command": "SET sql_mode='STRICT_TRANS_TABLES'",
-        },
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": BASE_DIR / "db.sqlite3",
     }
 }
 
-# ── Auth ──────────────────────────────────────────────────────────────────────
-AUTH_USER_MODEL = "accounts.FarmUser"
+# MySQL config (commented out until mysqlclient is properly installed)
+# DATABASES = {
+#     "default": {
+#         "ENGINE": "django.db.backends.mysql",
+#         "NAME": config("DB_NAME", default="dairymind_db"),
+#         "USER": config("DB_USER", default="root"),
+#         "PASSWORD": config("DB_PASSWORD", default=""),
+#         "HOST": config("DB_HOST", default="localhost"),
+#         "PORT": config("DB_PORT", default="3306"),
+#         "OPTIONS": {
+#             "charset": "utf8mb4",
+#             "init_command": "SET sql_mode='STRICT_TRANS_TABLES'",
+#         },
+#     }
+# }
 
+# ── Auth ──────────────────────────────────────────────────────────────────────
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
@@ -142,6 +149,11 @@ REST_FRAMEWORK = {
         "anon": "100/hour",
         "user": "1000/hour",
     },
+    "DEFAULT_FILTER_BACKENDS": [
+        "django_filters.rest_framework.DjangoFilterBackend",
+        "rest_framework.filters.SearchFilter",
+        "rest_framework.filters.OrderingFilter",
+    ],
 }
 
 # ── CORS ──────────────────────────────────────────────────────────────────────
@@ -161,12 +173,72 @@ CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = "UTC"
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 CELERY_TASK_TRACK_STARTED = True
-CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutes hard limit
-# Retry policy: 3 retries with 60s / 120s / 240s exponential backoff
-CELERY_TASK_MAX_RETRIES = 3
+CELERY_TASK_TIME_LIMIT = 30 * 60        # 30-minute hard timeout per task
+CELERY_TASK_SOFT_TIME_LIMIT = 25 * 60  # fires SoftTimeLimitExceeded first
+CELERY_TASK_MAX_RETRIES = 3             # project-wide retry cap
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1  # fair dispatch
+CELERY_TASK_ACKS_LATE = True            # re-queue on worker crash
+CELERY_TASK_REJECT_ON_WORKER_LOST = True
+
+# ── Celery Beat schedule ──────────────────────────────────────────────────────
+from celery.schedules import crontab  # noqa: E402
+
+CELERY_BEAT_SCHEDULE = {
+    # ── Health tasks ──────────────────────────────────────────────────────────
+
+    # Task 1: Anomaly detection — every 6 hours (00:00, 06:00, 12:00, 18:00 UTC)
+    "check-anomalies-every-6h": {
+        "task": "health.tasks.check_anomalies",
+        "schedule": crontab(minute=0, hour="*/6"),
+        "options": {"queue": "health"},
+    },
+    # Task 2: Daily health report — every day at 08:00 UTC
+    "daily-health-report-8am": {
+        "task": "health.tasks.daily_health_report",
+        "schedule": crontab(minute=0, hour=8),
+        "options": {"queue": "health"},
+    },
+    # Task 3: Resolve stale LOW alerts — every Sunday at 00:00 UTC
+    "resolve-old-alerts-weekly": {
+        "task": "health.tasks.resolve_old_alerts",
+        "schedule": crontab(minute=0, hour=0, day_of_week="sunday"),
+        "options": {"queue": "health"},
+    },
+
+    # ── Forecast tasks ────────────────────────────────────────────────────────
+    "generate-all-forecasts-nightly": {
+        "task": "forecast.tasks.generate_all_forecasts",
+        "schedule": crontab(minute=0, hour=2),
+        "options": {"queue": "forecast"},
+    },
+    # Monday 06:00 UTC — primary weekly regeneration run
+    "regenerate-forecasts-monday": {
+        "task": "forecast.tasks.regenerate_forecasts",
+        "schedule": crontab(minute=0, hour=6, day_of_week="monday"),
+        "options": {"queue": "forecast"},
+    },
+
+    # ── Breeding tasks ────────────────────────────────────────────────────────
+    "check-upcoming-heats-daily": {
+        "task": "breeding.tasks.check_upcoming_heats",
+        "schedule": crontab(minute=0, hour=6),
+        "options": {"queue": "health"},
+    },
+    # Predict breeding windows and create alerts — daily at 07:00 UTC
+    "schedule-breeding-alerts-7am": {
+        "task": "breeding.tasks.schedule_breeding_alerts",
+        "schedule": crontab(minute=0, hour=7),
+        "options": {"queue": "health"},
+    },
+}
 
 # ── Google Gemini API ─────────────────────────────────────────────────────────
 GEMINI_API_KEY = config("GEMINI_API_KEY", default="")
+
+# ── Cost Optimizer ────────────────────────────────────────────────────────────
+# Configurable milk price used for ROI calculations (INR per litre).
+# Override in .env: MILK_PRICE_PER_LITRE=60
+MILK_PRICE_PER_LITRE = config("MILK_PRICE_PER_LITRE", default=55.0, cast=float)
 
 # ── Logging ───────────────────────────────────────────────────────────────────
 LOGGING = {

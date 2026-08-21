@@ -1,65 +1,62 @@
 """
-Authentication views: login, logout, user management.
+Authentication views for login, logout, and registration.
 """
-from django.contrib.auth import login, logout
-from rest_framework import status
-from rest_framework.authtoken.models import Token
-from rest_framework.permissions import AllowAny, IsAuthenticated
-from rest_framework.response import Response
-from rest_framework.views import APIView
+from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.models import User
+from django.shortcuts import render, redirect
+from django.contrib import messages
+from django.db import transaction
+from django.urls import reverse
 
-from .models import FarmUser
-from .serializers import LoginSerializer, FarmUserSerializer
-
-
-class LoginView(APIView):
-    """
-    POST /api/auth/login/
-    Authenticates a Farm_User and returns a token.
-    Returns 401 on invalid credentials (AC3).
-    """
-    permission_classes = [AllowAny]
-
-    def post(self, request):
-        serializer = LoginSerializer(data=request.data, context={"request": request})
-        if not serializer.is_valid():
-            return Response(
-                {"detail": "Invalid credentials."},
-                status=status.HTTP_401_UNAUTHORIZED,
-            )
-        user = serializer.validated_data["user"]
-        token, _ = Token.objects.get_or_create(user=user)
-        login(request, user)
-        return Response(
-            {
-                "token": token.key,
-                "user": FarmUserSerializer(user).data,
-            },
-            status=status.HTTP_200_OK,
-        )
+from .models import Profile
 
 
-class LogoutView(APIView):
-    """
-    POST /api/auth/logout/
-    Invalidates the current session token.
-    """
-    permission_classes = [IsAuthenticated]
+def login_view(request):
+    if request.user.is_authenticated:
+        return redirect("dashboard")
+        
+    if request.method == "POST":
+        u = request.POST.get("username")
+        p = request.POST.get("password")
+        user = authenticate(request, username=u, password=p)
+        if user is not None:
+            login(request, user)
+            return redirect("dashboard")
+        else:
+            messages.error(request, "Invalid username or password.")
+            
+    return render(request, "accounts/login.html")
 
-    def post(self, request):
-        # Delete token to invalidate all future requests with this token
-        Token.objects.filter(user=request.user).delete()
-        logout(request)
-        return Response({"detail": "Successfully logged out."}, status=status.HTTP_200_OK)
+
+def logout_view(request):
+    logout(request)
+    return redirect("login")
 
 
-class CurrentUserView(APIView):
-    """
-    GET /api/auth/me/
-    Returns the currently authenticated user's profile.
-    """
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        serializer = FarmUserSerializer(request.user)
-        return Response(serializer.data)
+@transaction.atomic
+def register_view(request):
+    if request.user.is_authenticated:
+        return redirect("dashboard")
+        
+    if request.method == "POST":
+        u = request.POST.get("username")
+        p = request.POST.get("password")
+        e = request.POST.get("email", "")
+        f = request.POST.get("farm_name", "")
+        ph = request.POST.get("phone", "")
+        
+        if User.objects.filter(username=u).exists():
+            messages.error(request, "Username already exists.")
+        else:
+            user = User.objects.create_user(username=u, password=p, email=e)
+            # Profile is automatically created by the post_save signal
+            user.profile.role = Profile.Role.OWNER
+            user.profile.farm_name = f
+            user.profile.phone = ph
+            user.profile.save()
+            
+            login(request, user)
+            messages.success(request, f"Welcome to DairyMind, {f}!")
+            return redirect("dashboard")
+            
+    return render(request, "accounts/register.html")

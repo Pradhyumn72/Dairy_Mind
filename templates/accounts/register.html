@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Register Farm — DairyMind{% endblock %}
+{% block nav_hidden %}true{% endblock %}
+
+{% block extra_head %}
+<style>
+  body {
+    background: #f7fafc; 
+  }
+  .auth-card {
+    max-width: 480px;
+    margin: 60px auto;
+    background: var(--dm-white);
+    border: 1px solid var(--dm-gray-200);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-md);
+    padding: 40px;
+  }
+  .auth-logo {
+    text-align: center;
+    margin-bottom: 24px;
+  }
+  .auth-logo i {
+    font-size: 2.5rem;
+    color: var(--dm-green-600);
+  }
+  .auth-title {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-weight: 800;
+    text-align: center;
+    color: var(--dm-gray-900);
+    margin-bottom: 30px;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <i class="bi bi-shop-window"></i>
+    </div>
+    <h2 class="auth-title">Register Your Farm</h2>
+    
+    {% if messages %}
+      {% for msg in messages %}
+        <div class="alert alert-{{ msg.tags }}">{{ msg }}</div>
+      {% endfor %}
+    {% endif %}
+    
+    <form method="post" action="{% url 'register' %}">
+      {% csrf_token %}
+      
+      <div class="mb-3">
+        <label class="form-label">Farm Name</label>
+        <input type="text" name="farm_name" class="form-control" required placeholder="e.g. Sunny Meadows Dairy">
+      </div>
+      
+      <div class="mb-3">
+        <label class="form-label">Phone Number</label>
+        <input type="tel" name="phone" class="form-control">
+      </div>
+      
+      <hr class="my-4">
+      
+      <div class="mb-3">
+        <label class="form-label">Username</label>
+        <input type="text" name="username" class="form-control" required>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Email (Optional)</label>
+        <input type="email" name="email" class="form-control">
+      </div>
+      <div class="mb-4">
+        <label class="form-label">Password</label>
+        <input type="password" name="password" class="form-control" required>
+      </div>
+      <button type="submit" class="dm-btn dm-btn--primary w-100 mb-3">Create Farm Account</button>
+    </form>
+    
+    <div class="text-center text-muted" style="font-size:0.9rem">
+      Already have an account? <a href="{% url 'login' %}" style="color:var(--dm-green-600)">Sign in</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,636 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Cattle Registry — DairyMind{% endblock %}
+{% block meta_description %}Browse, search and manage all cattle records on your farm.{% endblock %}
+{% block nav_cattle %}active{% endblock %}
+{% block page_title %}Cattle Registry{% endblock %}
+
+{% block extra_head %}
+<style>
+  /* ── Search / filter bar ──────────────────────────────────────────────── */
+  .cl-filter-bar {
+    display:         flex;
+    align-items:     center;
+    gap:             10px;
+    flex-wrap:       wrap;
+    margin-bottom:   20px;
+  }
+  .cl-search-wrap {
+    position:   relative;
+    flex:       1;
+    min-width:  200px;
+  }
+  .cl-search-wrap .bi-search {
+    position:    absolute;
+    left:        12px;
+    top:         50%;
+    transform:   translateY(-50%);
+    color:       var(--dm-gray-500);
+    font-size:   .9rem;
+    pointer-events: none;
+  }
+  .cl-search-input {
+    width:         100%;
+    padding:       9px 12px 9px 36px;
+    border:        1.5px solid var(--dm-gray-200);
+    border-radius: var(--radius-md);
+    font-size:     .875rem;
+    background:    var(--dm-white);
+    color:         var(--dm-gray-900);
+    transition:    border-color .18s;
+    outline:       none;
+  }
+  .cl-search-input:focus { border-color: var(--dm-green-400); }
+
+  .cl-select {
+    padding:       8px 12px;
+    border:        1.5px solid var(--dm-gray-200);
+    border-radius: var(--radius-md);
+    font-size:     .86rem;
+    background:    var(--dm-white);
+    color:         var(--dm-gray-700);
+    cursor:        pointer;
+    outline:       none;
+    transition:    border-color .18s;
+  }
+  .cl-select:focus { border-color: var(--dm-green-400); }
+
+  /* ── Count pill ───────────────────────────────────────────────────────── */
+  .cl-count-pill {
+    background:    var(--dm-green-100);
+    color:         var(--dm-green-700);
+    font-size:     .72rem;
+    font-weight:   700;
+    padding:       2px 9px;
+    border-radius: 20px;
+    letter-spacing: .3px;
+  }
+
+  /* ── Table row link ───────────────────────────────────────────────────── */
+  .dm-table tbody tr { cursor: pointer; }
+  .dm-table tbody tr:hover td { background: var(--dm-green-50); }
+
+  /* ── Status badge ─────────────────────────────────────────────────────── */
+  .badge-active   { background: var(--dm-green-100); color: var(--dm-green-700); }
+  .badge-inactive { background: var(--dm-gray-100);  color: var(--dm-gray-500);  }
+
+  /* ── Pagination ───────────────────────────────────────────────────────── */
+  .cl-pagination {
+    display:         flex;
+    align-items:     center;
+    justify-content: space-between;
+    padding:         14px 20px;
+    border-top:      1px solid var(--dm-gray-100);
+    font-size:       .83rem;
+    color:           var(--dm-gray-500);
+    flex-wrap:       wrap;
+    gap:             8px;
+  }
+  .cl-page-btns { display: flex; gap: 4px; }
+  .cl-page-btn {
+    padding:       5px 11px;
+    border:        1.5px solid var(--dm-gray-200);
+    border-radius: var(--radius-sm);
+    background:    var(--dm-white);
+    color:         var(--dm-gray-700);
+    font-size:     .83rem;
+    cursor:        pointer;
+    transition:    all .16s;
+  }
+  .cl-page-btn:hover:not(:disabled) {
+    border-color: var(--dm-green-400);
+    color:        var(--dm-green-700);
+  }
+  .cl-page-btn.active {
+    background:   var(--dm-green-600);
+    border-color: var(--dm-green-600);
+    color:        #fff;
+    font-weight:  700;
+  }
+  .cl-page-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+  /* ── Skeleton rows ────────────────────────────────────────────────────── */
+  .sk-cell { height: 16px; border-radius: 4px; }
+
+  /* ── Modal form ───────────────────────────────────────────────────────── */
+  .modal-label {
+    font-size:   .8rem;
+    font-weight: 600;
+    color:       var(--dm-gray-700);
+    margin-bottom: 5px;
+  }
+  .modal-input {
+    width:         100%;
+    padding:       9px 12px;
+    border:        1.5px solid var(--dm-gray-200);
+    border-radius: var(--radius-md);
+    font-size:     .875rem;
+    outline:       none;
+    transition:    border-color .18s;
+    background:    var(--dm-white);
+  }
+  .modal-input:focus { border-color: var(--dm-green-400); }
+
+  /* ── Empty state ──────────────────────────────────────────────────────── */
+  .cl-empty {
+    text-align:  center;
+    padding:     56px 20px;
+    color:       var(--dm-gray-500);
+  }
+  .cl-empty-icon { font-size: 3rem; margin-bottom: 12px; }
+</style>
+{% endblock %}
+
+
+{% block content %}
+
+{# ── Page header ─────────────────────────────────────────────────────────── #}
+<div class="dm-page-header">
+  <div>
+    <h2 class="dm-page-header__title">
+      🐮 Cattle Registry
+      <span class="cl-count-pill ms-2" id="totalCountPill">…</span>
+    </h2>
+    <p class="dm-page-header__subtitle">All animals on the farm · click a row to open details</p>
+  </div>
+  <button
+    class="dm-btn dm-btn--primary"
+    id="btnOpenAddModal"
+    data-bs-toggle="modal"
+    data-bs-target="#addCattleModal"
+    type="button">
+    <i class="bi bi-plus-lg" aria-hidden="true"></i> Add Cattle
+  </button>
+</div>
+
+{# ── Filter bar ──────────────────────────────────────────────────────────── #}
+<div class="cl-filter-bar">
+  <div class="cl-search-wrap">
+    <i class="bi bi-search" aria-hidden="true"></i>
+    <input
+      type="search"
+      id="clSearchInput"
+      class="cl-search-input"
+      placeholder="Search by tag, name or breed…"
+      aria-label="Search cattle"
+      autocomplete="off">
+  </div>
+
+  <select id="clFilterStatus" class="cl-select" aria-label="Filter by status">
+    <option value="">All statuses</option>
+    <option value="active">Active only</option>
+    <option value="inactive">Inactive only</option>
+  </select>
+
+  <select id="clFilterGender" class="cl-select" aria-label="Filter by gender">
+    <option value="">All genders</option>
+    <option value="Female">Female</option>
+    <option value="Male">Male</option>
+  </select>
+
+  <button class="dm-btn dm-btn--outline dm-btn--sm" id="clResetBtn" type="button">
+    <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> Reset
+  </button>
+</div>
+
+{# ── Table card ──────────────────────────────────────────────────────────── #}
+<div class="dm-card" id="cattleTableCard">
+  <div class="dm-card__body p-0">
+    <div class="dm-table-wrap" style="border:none;border-radius:0;box-shadow:none;">
+      <table class="dm-table" id="cattleTable" aria-label="Cattle registry">
+        <thead>
+          <tr>
+            <th scope="col" class="sortable" data-col="tag_number" style="cursor:pointer;user-select:none;">
+              Tag # <i class="bi bi-arrow-down-up ms-1" id="sortIcon_tag_number" style="font-size:.7rem;opacity:.5"></i>
+            </th>
+            <th scope="col" class="sortable" data-col="name" style="cursor:pointer;user-select:none;">
+              Name <i class="bi bi-arrow-down-up ms-1" id="sortIcon_name" style="font-size:.7rem;opacity:.5"></i>
+            </th>
+            <th scope="col">Breed</th>
+            <th scope="col" class="sortable" data-col="age_years" style="cursor:pointer;user-select:none;">
+              Age <i class="bi bi-arrow-down-up ms-1" id="sortIcon_age_years" style="font-size:.7rem;opacity:.5"></i>
+            </th>
+            <th scope="col">Gender</th>
+            <th scope="col">Last Milk</th>
+            <th scope="col">Status</th>
+            <th scope="col" style="width:48px"></th>
+          </tr>
+        </thead>
+        <tbody id="cattleTbody">
+          {# 6 skeleton rows #}
+          {% for _ in "123456" %}
+          <tr class="sk-row-placeholder">
+            {% for w in "7 9 7 3 4 5 4" %}
+            <td><div class="dm-skeleton sk-cell" style="width:{{ w }}0%"></div></td>
+            {% endfor %}
+            <td></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {# Error state — hidden until needed #}
+    <div id="cattleTableError" class="dm-alert dm-alert--danger m-3" style="display:none" role="alert">
+      <i class="bi bi-exclamation-triangle-fill me-2"></i>
+      <span id="cattleTableErrorMsg">Failed to load cattle records.</span>
+    </div>
+
+    {# Empty state — hidden until needed #}
+    <div id="cattleEmptyState" class="cl-empty" style="display:none">
+      <div class="cl-empty-icon">🐮</div>
+      <p class="fw-600 mb-1">No cattle found</p>
+      <p class="text-muted" style="font-size:.85rem">Try adjusting your search or filters.</p>
+    </div>
+  </div>
+
+  {# Pagination footer #}
+  <div class="cl-pagination" id="clPagination">
+    <span id="clPaginationInfo">Showing — of — records</span>
+    <div class="cl-page-btns" id="clPageBtns" role="navigation" aria-label="Table pagination"></div>
+  </div>
+</div>
+
+
+{# ════════════════════════════════════════════════════════════════════════ #}
+{# ADD CATTLE MODAL                                                         #}
+{# ════════════════════════════════════════════════════════════════════════ #}
+<div class="modal fade" id="addCattleModal" tabindex="-1"
+     aria-labelledby="addCattleModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content border-0 shadow-lg" style="border-radius:var(--radius-lg)">
+
+      <div class="modal-header" style="background:var(--dm-green-800);border-radius:var(--radius-lg) var(--radius-lg) 0 0">
+        <h2 class="modal-title" id="addCattleModalLabel"
+            style="color:#fff;font-family:var(--font-display);font-size:1.1rem;font-weight:700">
+          <i class="bi bi-plus-circle-fill me-2" aria-hidden="true"></i>Register New Cattle
+        </h2>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+
+      <form id="addCattleForm" novalidate>
+        <div class="modal-body p-4">
+
+          {# API error banner #}
+          <div class="dm-alert dm-alert--danger mb-3" id="addCattleError" style="display:none" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+            <span id="addCattleErrorMsg"></span>
+          </div>
+
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="modal-label" for="fieldTagNumber">Tag Number <span class="text-danger">*</span></label>
+              <input type="text" id="fieldTagNumber" name="tag_number" class="modal-input" required
+                     placeholder="e.g. TAG-001" maxlength="20">
+              <div class="invalid-feedback">Tag number is required and must be unique.</div>
+            </div>
+            <div class="col-md-6">
+              <label class="modal-label" for="fieldName">Animal Name <span class="text-danger">*</span></label>
+              <input type="text" id="fieldName" name="name" class="modal-input" required
+                     placeholder="e.g. Daisy" maxlength="100">
+              <div class="invalid-feedback">Name is required.</div>
+            </div>
+            <div class="col-md-6">
+              <label class="modal-label" for="fieldBreed">Breed <span class="text-danger">*</span></label>
+              <input type="text" id="fieldBreed" name="breed" class="modal-input" required
+                     placeholder="e.g. Holstein Friesian" maxlength="100">
+              <div class="invalid-feedback">Breed is required.</div>
+            </div>
+            <div class="col-md-6">
+              <label class="modal-label" for="fieldGender">Gender <span class="text-danger">*</span></label>
+              <select id="fieldGender" name="gender" class="modal-input cl-select" required>
+                <option value="">Select gender…</option>
+                <option value="Female">Female</option>
+                <option value="Male">Male</option>
+              </select>
+              <div class="invalid-feedback">Please select a gender.</div>
+            </div>
+            <div class="col-md-6">
+              <label class="modal-label" for="fieldDOB">Date of Birth <span class="text-danger">*</span></label>
+              <input type="date" id="fieldDOB" name="date_of_birth" class="modal-input" required>
+              <div class="invalid-feedback">Date of birth is required (cannot be in the future).</div>
+            </div>
+            <div class="col-md-6">
+              <label class="modal-label" for="fieldWeight">Weight (kg)</label>
+              <input type="number" id="fieldWeight" name="weight_kg" class="modal-input"
+                     min="0" step="0.01" placeholder="e.g. 450.00">
+            </div>
+            <div class="col-md-6">
+              <label class="modal-label" for="fieldPurchaseDate">Purchase Date</label>
+              <input type="date" id="fieldPurchaseDate" name="purchase_date" class="modal-input">
+            </div>
+            <div class="col-12">
+              <label class="modal-label" for="fieldNotes">Notes</label>
+              <textarea id="fieldNotes" name="notes" class="modal-input"
+                        rows="3" maxlength="1000" placeholder="Any additional notes…"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer border-0 px-4 pb-4 pt-0 gap-2">
+          <button type="button" class="dm-btn dm-btn--outline" data-bs-dismiss="modal">
+            <i class="bi bi-x-lg" aria-hidden="true"></i> Cancel
+          </button>
+          <button type="submit" class="dm-btn dm-btn--primary" id="addCattleSubmitBtn">
+            <span id="addCattleSpinner" class="spinner-border spinner-border-sm me-1" style="display:none" aria-hidden="true"></span>
+            <i class="bi bi-check-lg me-1" id="addCattleSubmitIcon" aria-hidden="true"></i>
+            Register Cattle
+          </button>
+        </div>
+      </form>
+
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+/* ════════════════════════════════════════════════════════════════════════════ */
+/* cattle/list.html  — inline JS (no external file needed for this page)      */
+/* ════════════════════════════════════════════════════════════════════════════ */
+'use strict';
+
+const PAGE_SIZE = 20;
+
+/* ── State ─────────────────────────────────────────────────────────────────── */
+let allCattle     = [];   // full unfiltered list from API
+let filteredRows  = [];   // after search + filter
+let currentPage   = 1;
+let sortCol       = 'tag_number';
+let sortDir       = 'asc'; // 'asc' | 'desc'
+let milkYestMap   = {};   // { cattle_id: total_litres }
+
+/* ── Helpers ────────────────────────────────────────────────────────────────── */
+function getCsrf() {
+  const m = document.cookie.match(/csrftoken=([^;]+)/);
+  return m ? m[1] : '';
+}
+
+async function apiFetch(url, opts = {}) {
+  const res = await fetch(url, {
+    credentials: 'same-origin',
+    headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': getCsrf(), ...(opts.headers || {}) },
+    ...opts,
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw Object.assign(new Error(`HTTP ${res.status}`), { body, status: res.status });
+  }
+  return res.json();
+}
+
+function ageLabel(yrs) {
+  if (yrs == null) return '—';
+  if (yrs < 1) return `${Math.round(yrs * 12)} mo`;
+  return `${yrs.toFixed(1)} yr`;
+}
+
+/* ── Fetch yesterday's milk map ─────────────────────────────────────────────── */
+async function loadYestMilk() {
+  const d = new Date(); d.setDate(d.getDate() - 1);
+  const yest = d.toISOString().slice(0, 10);
+  try {
+    const data = await apiFetch(`/api/milk/logs/?date=${yest}&page_size=500`);
+    const logs = data.results || data;
+    milkYestMap = {};
+    for (const l of logs) {
+      const cid = l.cattle || (l.cattle_id);
+      if (cid) milkYestMap[cid] = (milkYestMap[cid] || 0) + parseFloat(l.total_litres || 0);
+    }
+  } catch (_) { /* non-critical */ }
+}
+
+/* ── Fetch all cattle ───────────────────────────────────────────────────────── */
+async function loadCattle() {
+  try {
+    // Fetch up to 500 records (adjust if farm has more)
+    const data = await apiFetch('/api/cattle/?page_size=500&ordering=tag_number');
+    allCattle = data.results || data;
+    document.getElementById('totalCountPill').textContent = allCattle.length;
+    applyFilters();
+  } catch (err) {
+    document.getElementById('cattleTableError').style.display = '';
+    document.getElementById('cattleTableErrorMsg').textContent =
+      'Could not load cattle records. ' + (err.message || '');
+    clearSkeletons();
+  }
+}
+
+/* ── Filter + sort ─────────────────────────────────────────────────────────── */
+function applyFilters() {
+  const q      = (document.getElementById('clSearchInput').value || '').toLowerCase().trim();
+  const status = document.getElementById('clFilterStatus').value;
+  const gender = document.getElementById('clFilterGender').value;
+
+  filteredRows = allCattle.filter(c => {
+    if (q && !(`${c.tag_number} ${c.name} ${c.breed}`).toLowerCase().includes(q)) return false;
+    if (status === 'active'   && !c.is_active) return false;
+    if (status === 'inactive' &&  c.is_active) return false;
+    if (gender && c.gender !== gender) return false;
+    return true;
+  });
+
+  // Sort
+  filteredRows.sort((a, b) => {
+    let av = a[sortCol] ?? '', bv = b[sortCol] ?? '';
+    if (typeof av === 'string') av = av.toLowerCase();
+    if (typeof bv === 'string') bv = bv.toLowerCase();
+    if (av < bv) return sortDir === 'asc' ? -1 : 1;
+    if (av > bv) return sortDir === 'asc' ?  1 : -1;
+    return 0;
+  });
+
+  currentPage = 1;
+  renderPage();
+}
+
+/* ── Render current page ────────────────────────────────────────────────────── */
+function renderPage() {
+  clearSkeletons();
+  const tbody  = document.getElementById('cattleTbody');
+  const total  = filteredRows.length;
+  const start  = (currentPage - 1) * PAGE_SIZE;
+  const slice  = filteredRows.slice(start, start + PAGE_SIZE);
+
+  if (!total) {
+    tbody.innerHTML = '';
+    document.getElementById('cattleEmptyState').style.display = '';
+    document.getElementById('clPaginationInfo').textContent = 'No records found';
+    document.getElementById('clPageBtns').innerHTML = '';
+    return;
+  }
+
+  document.getElementById('cattleEmptyState').style.display = 'none';
+  document.getElementById('clPaginationInfo').textContent =
+    `Showing ${start + 1}–${Math.min(start + PAGE_SIZE, total)} of ${total} records`;
+
+  tbody.innerHTML = slice.map(c => {
+    const milk = milkYestMap[c.id] != null ? `${milkYestMap[c.id].toFixed(1)} L` : '—';
+    const activeClass = c.is_active ? 'badge-active' : 'badge-inactive';
+    const activeLbl   = c.is_active ? 'Active' : 'Inactive';
+    return `
+      <tr onclick="window.location.href='/cattle/${c.id}/'" tabindex="0"
+          role="link" aria-label="View ${c.name}" data-cattle-id="${c.id}">
+        <td><span class="fw-600" style="font-family:monospace;font-size:.9rem">${c.tag_number}</span></td>
+        <td>
+          <div class="fw-600" style="font-size:.87rem">${c.name}</div>
+          <div class="text-muted" style="font-size:.74rem">${c.gender || ''}</div>
+        </td>
+        <td style="font-size:.85rem">${c.breed || '—'}</td>
+        <td style="font-size:.85rem">${ageLabel(c.age_years)}</td>
+        <td>
+          <span class="dm-badge ${c.gender === 'Female' ? 'dm-badge--green' : 'dm-badge--blue'}"
+                style="font-size:.72rem">${c.gender || '—'}</span>
+        </td>
+        <td style="font-size:.85rem">${milk}</td>
+        <td>
+          <span class="dm-badge ${activeClass}" style="font-size:.72rem">
+            ${c.is_active ? '● ' : '○ '}${activeLbl}
+          </span>
+        </td>
+        <td>
+          <a href="/cattle/${c.id}/" class="dm-btn dm-btn--outline dm-btn--sm"
+             onclick="event.stopPropagation()" aria-label="Details for ${c.name}">
+            <i class="bi bi-eye" aria-hidden="true"></i>
+          </a>
+        </td>
+      </tr>`;
+  }).join('');
+
+  renderPagination(total);
+}
+
+function clearSkeletons() {
+  document.querySelectorAll('.sk-row-placeholder').forEach(r => r.remove());
+}
+
+/* ── Pagination ─────────────────────────────────────────────────────────────── */
+function renderPagination(total) {
+  const pages = Math.ceil(total / PAGE_SIZE);
+  const btnsEl = document.getElementById('clPageBtns');
+  if (pages <= 1) { btnsEl.innerHTML = ''; return; }
+
+  let html = `<button class="cl-page-btn" id="pagePrev" ${currentPage===1?'disabled':''} aria-label="Previous page">‹</button>`;
+
+  const range = [];
+  for (let p = 1; p <= pages; p++) {
+    if (p === 1 || p === pages || Math.abs(p - currentPage) <= 1) range.push(p);
+    else if (range[range.length - 1] !== '…') range.push('…');
+  }
+
+  range.forEach(p => {
+    if (p === '…') {
+      html += `<button class="cl-page-btn" disabled>…</button>`;
+    } else {
+      html += `<button class="cl-page-btn ${p === currentPage ? 'active' : ''}"
+                       data-page="${p}" aria-label="Page ${p}" aria-current="${p===currentPage?'page':'false'}">${p}</button>`;
+    }
+  });
+
+  html += `<button class="cl-page-btn" id="pageNext" ${currentPage===pages?'disabled':''} aria-label="Next page">›</button>`;
+  btnsEl.innerHTML = html;
+
+  btnsEl.querySelectorAll('[data-page]').forEach(btn => {
+    btn.addEventListener('click', () => { currentPage = +btn.dataset.page; renderPage(); });
+  });
+  const prev = btnsEl.querySelector('#pagePrev');
+  const next = btnsEl.querySelector('#pageNext');
+  if (prev) prev.addEventListener('click', () => { currentPage--; renderPage(); });
+  if (next) next.addEventListener('click', () => { currentPage++; renderPage(); });
+}
+
+/* ── Sorting ────────────────────────────────────────────────────────────────── */
+document.querySelectorAll('th.sortable').forEach(th => {
+  th.addEventListener('click', () => {
+    const col = th.dataset.col;
+    if (sortCol === col) {
+      sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+      sortCol = col;
+      sortDir = 'asc';
+    }
+    // Update icons
+    document.querySelectorAll('th.sortable i').forEach(i => { i.className = 'bi bi-arrow-down-up ms-1'; i.style.opacity = '.5'; });
+    const icon = document.getElementById(`sortIcon_${col}`);
+    if (icon) {
+      icon.className = sortDir === 'asc' ? 'bi bi-arrow-up ms-1' : 'bi bi-arrow-down ms-1';
+      icon.style.opacity = '1';
+    }
+    applyFilters();
+  });
+});
+
+/* ── Live search + filter listeners ─────────────────────────────────────────── */
+let searchTimeout;
+document.getElementById('clSearchInput').addEventListener('input', () => {
+  clearTimeout(searchTimeout);
+  searchTimeout = setTimeout(applyFilters, 220);
+});
+document.getElementById('clFilterStatus').addEventListener('change', applyFilters);
+document.getElementById('clFilterGender').addEventListener('change', applyFilters);
+document.getElementById('clResetBtn').addEventListener('click', () => {
+  document.getElementById('clSearchInput').value = '';
+  document.getElementById('clFilterStatus').value = '';
+  document.getElementById('clFilterGender').value = '';
+  applyFilters();
+});
+
+/* ── Add Cattle form submit ──────────────────────────────────────────────────── */
+document.getElementById('addCattleForm').addEventListener('submit', async function (e) {
+  e.preventDefault();
+  if (!this.checkValidity()) { this.classList.add('was-validated'); return; }
+
+  const submitBtn = document.getElementById('addCattleSubmitBtn');
+  const spinner   = document.getElementById('addCattleSpinner');
+  const icon      = document.getElementById('addCattleSubmitIcon');
+  const errEl     = document.getElementById('addCattleError');
+  const errMsg    = document.getElementById('addCattleErrorMsg');
+
+  errEl.style.display = 'none';
+  submitBtn.disabled  = true;
+  spinner.style.display = '';
+  icon.style.display  = 'none';
+
+  const payload = {
+    tag_number:    this.tag_number.value.trim(),
+    name:          this.name.value.trim(),
+    breed:         this.breed.value.trim(),
+    gender:        this.gender.value,
+    date_of_birth: this.date_of_birth.value,
+    weight_kg:     this.weight_kg.value || null,
+    purchase_date: this.purchase_date.value || null,
+    notes:         this.notes.value.trim(),
+  };
+
+  try {
+    await apiFetch('/api/cattle/', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(payload),
+    });
+    // Close modal & reload table
+    bootstrap.Modal.getInstance(document.getElementById('addCattleModal')).hide();
+    this.reset();
+    this.classList.remove('was-validated');
+    await loadCattle();
+  } catch (err) {
+    const msg = err.body ? Object.values(err.body).flat().join(' ') : err.message;
+    errMsg.textContent  = msg || 'An error occurred.';
+    errEl.style.display = '';
+  } finally {
+    submitBtn.disabled    = false;
+    spinner.style.display = 'none';
+    icon.style.display    = '';
+  }
+});
+
+/* ── Boot ───────────────────────────────────────────────────────────────────── */
+document.addEventListener('DOMContentLoaded', async () => {
+  await Promise.allSettled([loadYestMilk(), loadCattle()]);
+});
+</script>
+{% endblock %}
