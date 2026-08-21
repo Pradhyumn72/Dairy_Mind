@@ -1,72 +1,360 @@
-{% extends "base.html" %}
 {% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DairyMind — Welcome</title>
+  <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+        integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
+        crossorigin="anonymous">
+  <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="{% static 'css/dairymind.css' %}">
+  <style>
+    /* ── Page background ─────────────────────────────────────── */
+    body {
+      background: linear-gradient(145deg, #0d2b1a 0%, #1a4731 55%, #205a3c 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px;
+    }
 
-{% block title %}Login — DairyMind{% endblock %}
-{% block nav_hidden %}true{% endblock %}
+    /* ── Card ────────────────────────────────────────────────── */
+    .auth-card {
+      background: #fff;
+      border-radius: 22px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.35);
+      width: 100%;
+      max-width: 460px;
+      overflow: hidden;
+    }
 
-{% block extra_head %}
-<style>
-  body {
-    background: #f7fafc; /* Very light gray */
-  }
-  .auth-card {
-    max-width: 420px;
-    margin: 60px auto;
-    background: var(--dm-white);
-    border: 1px solid var(--dm-gray-200);
-    border-radius: var(--radius-xl);
-    box-shadow: var(--shadow-md);
-    padding: 40px;
-  }
-  .auth-logo {
-    text-align: center;
-    margin-bottom: 24px;
-  }
-  .auth-logo i {
-    font-size: 2.5rem;
-    color: var(--dm-green-600);
-  }
-  .auth-title {
-    font-family: var(--font-display);
-    font-size: 1.5rem;
-    font-weight: 800;
-    text-align: center;
-    color: var(--dm-gray-900);
-    margin-bottom: 30px;
-  }
-</style>
-{% endblock %}
+    /* ── Brand header ────────────────────────────────────────── */
+    .auth-header {
+      background: linear-gradient(135deg, #1a4731, #2e8555);
+      padding: 28px 32px 22px;
+      text-align: center;
+      color: #fff;
+    }
+    .auth-header .logo { font-size: 2.4rem; line-height: 1; margin-bottom: 6px; }
+    .auth-header .brand-name {
+      font-family: var(--font-display, 'Inter', sans-serif);
+      font-size: 1.65rem; font-weight: 800; letter-spacing: -.5px;
+    }
+    .auth-header .brand-sub {
+      font-size: .78rem; opacity: .75; letter-spacing: .8px;
+      text-transform: uppercase; margin-top: 2px;
+    }
 
-{% block content %}
-<div class="container">
-  <div class="auth-card">
-    <div class="auth-logo">
-      <i class="bi bi-droplet-fill"></i>
-    </div>
-    <h2 class="auth-title">Welcome to DairyMind</h2>
-    
+    /* ── Tabs ────────────────────────────────────────────────── */
+    .auth-tabs {
+      display: flex;
+      border-bottom: 2px solid #e2e8f0;
+    }
+    .auth-tab {
+      flex: 1;
+      padding: 13px;
+      text-align: center;
+      font-size: .88rem;
+      font-weight: 600;
+      color: #718096;
+      cursor: pointer;
+      background: #f8fafb;
+      border: none;
+      transition: all .2s ease;
+      letter-spacing: .2px;
+    }
+    .auth-tab.active {
+      color: #1a4731;
+      background: #fff;
+      border-bottom: 2.5px solid #2e8555;
+      margin-bottom: -2px;
+    }
+    .auth-tab:hover:not(.active) { background: #f0f4f2; color: #2d3748; }
+
+    /* ── Form panel ──────────────────────────────────────────── */
+    .auth-body { padding: 28px 32px 32px; }
+
+    /* Input groups */
+    .auth-field { margin-bottom: 16px; }
+    .auth-field label {
+      display: block; font-size: .78rem; font-weight: 700;
+      color: #2d3748; margin-bottom: 5px; letter-spacing: .3px;
+    }
+    .auth-input-wrap {
+      display: flex; align-items: center;
+      border: 1.5px solid #e2e8f0; border-radius: 10px;
+      overflow: hidden; background: #f8fafb;
+      transition: border-color .2s ease, box-shadow .2s ease;
+    }
+    .auth-input-wrap:focus-within {
+      border-color: #2e8555;
+      box-shadow: 0 0 0 3px rgba(46,133,85,.12);
+      background: #fff;
+    }
+    .auth-input-wrap .icon {
+      padding: 0 11px; color: #a0aec0; font-size: 1rem; flex-shrink: 0;
+    }
+    .auth-input-wrap input {
+      flex: 1; border: none; background: transparent;
+      padding: 10px 12px 10px 0; font-size: .88rem; color: #2d3748;
+      outline: none;
+    }
+    .auth-input-wrap input::placeholder { color: #a0aec0; }
+
+    /* Two columns for name row */
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+    /* Submit button */
+    .auth-submit {
+      display: flex; align-items: center; justify-content: center;
+      gap: 8px; width: 100%; padding: 12px;
+      background: linear-gradient(135deg, #2e8555, #1a4731);
+      color: #fff; border: none; border-radius: 10px;
+      font-size: .92rem; font-weight: 700; cursor: pointer;
+      transition: all .2s ease; margin-top: 8px;
+      box-shadow: 0 4px 14px rgba(46,133,85,.30);
+    }
+    .auth-submit:hover {
+      background: linear-gradient(135deg, #3aaa6e, #2e8555);
+      box-shadow: 0 6px 20px rgba(46,133,85,.40);
+      transform: translateY(-1px);
+    }
+    .auth-submit:active { transform: translateY(0); }
+
+    /* Error / success messages */
+    .auth-msg {
+      border-radius: 8px; padding: 9px 13px;
+      font-size: .82rem; margin-bottom: 16px;
+      display: flex; align-items: flex-start; gap: 8px;
+    }
+    .auth-msg.error   { background: #fff0f0; color: #9b1c1c; border-left: 3px solid #e53e3e; }
+    .auth-msg.success { background: #edf8f2; color: #1a4731; border-left: 3px solid #2e8555; }
+
+    /* Switch link below form */
+    .auth-switch { text-align: center; margin-top: 18px; font-size: .82rem; color: #718096; }
+    .auth-switch a { color: #2e8555; font-weight: 600; text-decoration: none; }
+    .auth-switch a:hover { text-decoration: underline; }
+
+    /* Panel hide/show */
+    .auth-panel { display: none; }
+    .auth-panel.active { display: block; }
+
+    @media (max-width: 480px) {
+      .auth-body { padding: 22px 20px 26px; }
+      .two-col { grid-template-columns: 1fr; gap: 0; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="auth-card">
+
+  <!-- ── Brand header ────────────────────────────────────────── -->
+  <div class="auth-header">
+    <div class="logo">🐄</div>
+    <div class="brand-name">DairyMind</div>
+    <div class="brand-sub">Smart Dairy Farm Management</div>
+  </div>
+
+  <!-- ── Tabs ────────────────────────────────────────────────── -->
+  <div class="auth-tabs">
+    <button class="auth-tab {% if not signup_active %}active{% endif %}"
+            id="tabSignIn" type="button" onclick="switchTab('signin')">
+      <i class="bi bi-box-arrow-in-right me-1"></i> Sign In
+    </button>
+    <button class="auth-tab {% if signup_active %}active{% endif %}"
+            id="tabSignUp" type="button" onclick="switchTab('signup')">
+      <i class="bi bi-person-plus me-1"></i> Sign Up
+    </button>
+  </div>
+
+  <!-- ── Form body ───────────────────────────────────────────── -->
+  <div class="auth-body">
+
+    <!-- Django messages -->
     {% if messages %}
-      {% for msg in messages %}
-        <div class="alert alert-{{ msg.tags }}">{{ msg }}</div>
+      {% for message in messages %}
+      <div class="auth-msg {% if 'error' in message.tags %}error{% else %}success{% endif %}">
+        <i class="bi bi-{% if 'error' in message.tags %}exclamation-circle{% else %}check-circle{% endif %}"></i>
+        <span>{{ message }}</span>
+      </div>
       {% endfor %}
     {% endif %}
-    
-    <form method="post" action="{% url 'login' %}">
-      {% csrf_token %}
-      <div class="mb-3">
-        <label class="form-label">Username</label>
-        <input type="text" name="username" class="form-control" required autofocus>
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <!-- SIGN IN PANEL                                          -->
+    <!-- ══════════════════════════════════════════════════════ -->
+    <div class="auth-panel {% if not signup_active %}active{% endif %}" id="panelSignIn">
+
+      <form method="post" action="{% url 'login' %}">
+        {% csrf_token %}
+
+        <div class="auth-field">
+          <label for="si_username">Username</label>
+          <div class="auth-input-wrap">
+            <span class="icon"><i class="bi bi-person"></i></span>
+            <input type="text" id="si_username" name="username"
+                   placeholder="Enter your username" required autocomplete="username">
+          </div>
+        </div>
+
+        <div class="auth-field">
+          <label for="si_password">Password</label>
+          <div class="auth-input-wrap">
+            <span class="icon"><i class="bi bi-lock"></i></span>
+            <input type="password" id="si_password" name="password"
+                   placeholder="Enter your password" required autocomplete="current-password">
+          </div>
+        </div>
+
+        <button type="submit" class="auth-submit">
+          <i class="bi bi-box-arrow-in-right"></i> Sign In
+        </button>
+      </form>
+
+      <div class="auth-switch">
+        New to DairyMind?
+        <a href="#" onclick="switchTab('signup'); return false;">Create an account</a>
       </div>
-      <div class="mb-4">
-        <label class="form-label">Password</label>
-        <input type="password" name="password" class="form-control" required>
-      </div>
-      <button type="submit" class="dm-btn dm-btn--primary w-100 mb-3">Sign In</button>
-    </form>
-    
-    <div class="text-center text-muted" style="font-size:0.9rem">
-      Don't have an account? <a href="{% url 'register' %}" style="color:var(--dm-green-600)">Register Farm</a>
     </div>
-  </div>
-</div>
-{% endblock %}
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <!-- SIGN UP PANEL                                          -->
+    <!-- ══════════════════════════════════════════════════════ -->
+    <div class="auth-panel {% if signup_active %}active{% endif %}" id="panelSignUp">
+
+      <form method="post" action="{% url 'register' %}">
+        {% csrf_token %}
+
+        <!-- Name row -->
+        <div class="two-col">
+          <div class="auth-field">
+            <label for="su_first_name">First Name <span style="color:#e53e3e">*</span></label>
+            <div class="auth-input-wrap">
+              <span class="icon"><i class="bi bi-person"></i></span>
+              <input type="text" id="su_first_name" name="first_name"
+                     placeholder="John" required
+                     value="{{ prefill.first_name|default:'' }}">
+            </div>
+          </div>
+          <div class="auth-field">
+            <label for="su_last_name">Last Name</label>
+            <div class="auth-input-wrap">
+              <span class="icon"><i class="bi bi-person"></i></span>
+              <input type="text" id="su_last_name" name="last_name"
+                     placeholder="Farmer"
+                     value="{{ prefill.last_name|default:'' }}">
+            </div>
+          </div>
+        </div>
+
+        <div class="auth-field">
+          <label for="su_email">Email Address <span style="color:#e53e3e">*</span></label>
+          <div class="auth-input-wrap">
+            <span class="icon"><i class="bi bi-envelope"></i></span>
+            <input type="email" id="su_email" name="email"
+                   placeholder="john@farm.com" required autocomplete="email"
+                   value="{{ prefill.email|default:'' }}">
+          </div>
+        </div>
+
+        <div class="auth-field">
+          <label for="su_username">Username <span style="color:#e53e3e">*</span></label>
+          <div class="auth-input-wrap">
+            <span class="icon"><i class="bi bi-at"></i></span>
+            <input type="text" id="su_username" name="username"
+                   placeholder="your_username" required autocomplete="username"
+                   value="{{ prefill.username|default:'' }}">
+          </div>
+        </div>
+
+        <div class="auth-field">
+          <label for="su_farm">Farm Name</label>
+          <div class="auth-input-wrap">
+            <span class="icon"><i class="bi bi-house"></i></span>
+            <input type="text" id="su_farm" name="farm_name"
+                   placeholder="Green Meadows Farm"
+                   value="{{ prefill.farm_name|default:'' }}">
+          </div>
+        </div>
+
+        <div class="auth-field">
+          <label for="su_password">Password <span style="color:#e53e3e">*</span></label>
+          <div class="auth-input-wrap">
+            <span class="icon"><i class="bi bi-lock"></i></span>
+            <input type="password" id="su_password" name="password"
+                   placeholder="Minimum 8 characters" required autocomplete="new-password"
+                   minlength="8">
+          </div>
+        </div>
+
+        <div class="auth-field">
+          <label for="su_confirm">Confirm Password <span style="color:#e53e3e">*</span></label>
+          <div class="auth-input-wrap">
+            <span class="icon"><i class="bi bi-lock-fill"></i></span>
+            <input type="password" id="su_confirm" name="confirm_password"
+                   placeholder="Re-enter password" required autocomplete="new-password">
+          </div>
+          <div id="pwMatchMsg" style="font-size:.75rem;margin-top:4px;display:none"></div>
+        </div>
+
+        <button type="submit" class="auth-submit" id="signupBtn">
+          <i class="bi bi-person-plus"></i> Create Account
+        </button>
+      </form>
+
+      <div class="auth-switch">
+        Already have an account?
+        <a href="#" onclick="switchTab('signin'); return false;">Sign in here</a>
+      </div>
+    </div>
+
+  </div>{# /.auth-body #}
+</div>{# /.auth-card #}
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-YvpcrYf0tY3lHB60NNkmXc4s9bIOgUxi8T/jzmTA37Wk/9HyBIYNd7Rg7UKAhX8"
+        crossorigin="anonymous"></script>
+<script>
+  /* ── Tab switcher ─────────────────────────────────────────── */
+  function switchTab(tab) {
+    const isSignup = tab === 'signup';
+    document.getElementById('tabSignIn').classList.toggle('active', !isSignup);
+    document.getElementById('tabSignUp').classList.toggle('active',  isSignup);
+    document.getElementById('panelSignIn').classList.toggle('active', !isSignup);
+    document.getElementById('panelSignUp').classList.toggle('active',  isSignup);
+    // Focus first relevant input
+    const focusId = isSignup ? 'su_first_name' : 'si_username';
+    setTimeout(() => document.getElementById(focusId)?.focus(), 60);
+  }
+
+  /* ── Real-time password match indicator ───────────────────── */
+  function checkPasswordMatch() {
+    const pw  = document.getElementById('su_password').value;
+    const cfm = document.getElementById('su_confirm').value;
+    const msg = document.getElementById('pwMatchMsg');
+    const btn = document.getElementById('signupBtn');
+    if (!cfm) { msg.style.display = 'none'; return; }
+    if (pw === cfm) {
+      msg.style.display = 'block';
+      msg.style.color   = '#2e8555';
+      msg.innerHTML     = '<i class="bi bi-check-circle-fill"></i> Passwords match';
+      btn.disabled      = false;
+    } else {
+      msg.style.display = 'block';
+      msg.style.color   = '#e53e3e';
+      msg.innerHTML     = '<i class="bi bi-x-circle-fill"></i> Passwords do not match';
+      btn.disabled      = true;
+    }
+  }
+
+  document.getElementById('su_confirm').addEventListener('input', checkPasswordMatch);
+  document.getElementById('su_password').addEventListener('input', checkPasswordMatch);
+</script>
+</body>
+</html>

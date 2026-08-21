@@ -181,7 +181,11 @@
       <div class="dm-topbar__breadcrumb">
         <p class="dm-topbar__farm-name mb-0">
           <i class="bi bi-geo-alt-fill me-1" style="color:var(--dm-green-500)" aria-hidden="true"></i>
-          {% block farm_name %}Green Meadows Farm{% endblock %}
+          {% if user.is_authenticated and user.profile.farm_name %}
+            {{ user.profile.farm_name }}
+          {% else %}
+            {% block farm_name %}My Farm{% endblock %}
+          {% endif %}
         </p>
         <h1 class="dm-topbar__page-title">{% block page_title %}Dashboard{% endblock %}</h1>
       </div>
@@ -222,10 +226,10 @@
             aria-haspopup="true"
             aria-label="User menu">
             <div class="dm-user-chip__avatar" aria-hidden="true">
-              {{ user.get_full_name|first|upper|default:user.username|first|upper }}
+              {{ user.username|first|upper }}
             </div>
             <span class="dm-user-chip__name">
-              {{ user.get_full_name|default:user.username }}
+              {{ user.username }}
             </span>
             <i class="bi bi-chevron-down ms-1" style="font-size:.7rem;color:var(--dm-gray-500)" aria-hidden="true"></i>
           </button>

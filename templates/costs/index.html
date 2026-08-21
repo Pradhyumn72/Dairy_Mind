@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Cost Optimizer — DairyMind{% endblock %}
+{% block page_title %}Cost Optimizer{% endblock %}
+{% block nav_costs %}active{% endblock %}
+{% block content %}
+<div class="dm-page-header">
+  <div>
+    <h2 class="dm-page-header__title">💰 Cost Optimizer</h2>
+    <p class="dm-page-header__subtitle">Manage your farm's Cost Optimizer data</p>
+  </div>
+</div>
+<div class="dm-card">
+  <div class="dm-card__body text-center py-5 text-muted">
+    <div style="font-size:3rem;margin-bottom:12px">💰</div>
+    <h4 class="fw-bold">Cost Optimizer</h4>
+    <p>This module is under active development.<br>The REST API at <code>/api/</code> is fully functional.</p>
+    <a href="/api/docs/" class="dm-btn dm-btn--outline dm-btn--sm mt-2" target="_blank">
+      <i class="bi bi-code-slash"></i> View API Docs
+    </a>
+  </div>
+</div>
+{% endblock %}
