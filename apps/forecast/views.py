@@ -18,6 +18,8 @@ from decimal import Decimal, ROUND_HALF_UP
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 
+from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiExample, OpenApiParameter, OpenApiResponse
+from drf_spectacular.types import OpenApiTypes
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from apps.accounts.permissions import IsOwnerOrReadOnly, IsVetOrOwner
@@ -83,6 +85,8 @@ class CattleForecastView(APIView):
     """
 
     permission_classes = [IsOwnerOrReadOnly]
+
+    @extend_schema(summary="Get Details")
 
     def get(self, request, cattle_id: int):
         cattle = get_object_or_404(Cattle, pk=cattle_id)
@@ -236,6 +240,8 @@ class ForecastRefreshView(APIView):
 
     permission_classes = [IsOwnerOrReadOnly]
 
+    @extend_schema(summary="Submit Data")
+
     def post(self, request):
         from .tasks import regenerate_forecasts
         result = regenerate_forecasts.apply_async()
@@ -280,6 +286,8 @@ class HerdForecastView(APIView):
     """
 
     permission_classes = [IsOwnerOrReadOnly]
+
+    @extend_schema(summary="Get Details")
 
     def get(self, request):
         try:

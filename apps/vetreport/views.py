@@ -16,6 +16,8 @@ import logging
 import os
 
 from django.shortcuts import get_object_or_404
+from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiExample, OpenApiParameter, OpenApiResponse
+from drf_spectacular.types import OpenApiTypes
 from rest_framework import status
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.permissions import IsAuthenticated
@@ -88,6 +90,8 @@ class VetReportUploadView(APIView):
 
     permission_classes = [IsVetOrOwner]
     parser_classes     = [MultiPartParser, FormParser]
+
+    @extend_schema(summary="Submit Data")
 
     def post(self, request):
         # ── Validate cattle_id ────────────────────────────────────────────────
@@ -203,6 +207,8 @@ class VetReportDetailView(APIView):
 
     permission_classes = [IsVetOrOwner]
 
+    @extend_schema(summary="Get Details")
+
     def get(self, request, pk: int):
         report = get_object_or_404(
             VetReport.objects.select_related("cattle", "uploaded_by"),
@@ -246,6 +252,8 @@ class VetReportListView(APIView):
     """
 
     permission_classes = [IsVetOrOwner]
+
+    @extend_schema(summary="Get Details")
 
     def get(self, request):
         qs = VetReport.objects.select_related("cattle").order_by("-upload_date")

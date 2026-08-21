@@ -1,0 +1,3447 @@
+openapi: 3.0.3
+info:
+  title: DairyMind API
+  version: 1.0.0
+  description: Smart Dairy Farm Management System API
+paths:
+  /api/alerts/:
+    get:
+      operationId: alerts_retrieve
+      description: |-
+        GET /api/alerts/
+
+        Query params (all optional)
+        ---------------------------
+        is_resolved : bool  (?is_resolved=false | ?is_resolved=true)
+        severity    : str   (?severity=HIGH | MEDIUM | LOW)
+        cattle_id   : int   (?cattle_id=3)
+        alert_type  : str   (?alert_type=ANOMALY | MANUAL | FORECAST)
+
+        Response 200
+        ------------
+        {
+            "count"  : int,
+            "results": [ ...HealthAlert objects... ]
+        }
+      summary: Get Details
+      tags:
+      - alerts
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/alerts/{id}/:
+    get:
+      operationId: alerts_retrieve_2
+      description: GET /api/alerts/{id}/
+      summary: Get Details
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - alerts
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/alerts/{id}/acknowledge/:
+    post:
+      operationId: alerts_acknowledge_create
+      description: POST /api/alerts/{id}/acknowledge/
+      summary: Submit Data
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - alerts
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/alerts/run-check/:
+    post:
+      operationId: alerts_run_check_create
+      description: |-
+        Manually trigger the ML anomaly check for all active cattle.
+
+        POST /api/alerts/run-check/
+
+        Response 202
+        ------------
+        {
+            "detail"  : "Anomaly check task enqueued.",
+            "task_id" : str   // Celery task ID
+        }
+      summary: Submit Data
+      tags:
+      - alerts
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/breeding/ai/:
+    get:
+      operationId: breeding_ai_list
+      description: List ArtificialInsemination items
+      summary: List ArtificialInsemination
+      parameters:
+      - in: query
+        name: cattle
+        schema:
+          type: integer
+      - in: query
+        name: date_from
+        schema:
+          type: string
+          format: date
+      - in: query
+        name: date_to
+        schema:
+          type: string
+          format: date
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - in: query
+        name: outcome
+        schema:
+          type: string
+          enum:
+          - CONFIRMED_PREGNANT
+          - FAILED
+          - PENDING
+        description: |-
+          * `PENDING` - Pending
+          * `CONFIRMED_PREGNANT` - Confirmed Pregnant
+          * `FAILED` - Failed
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - breeding
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedArtificialInseminationList'
+          description: ''
+    post:
+      operationId: breeding_ai_create
+      description: Create a new ArtificialInsemination
+      summary: Create ArtificialInsemination
+      tags:
+      - breeding
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ArtificialInsemination'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ArtificialInsemination'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ArtificialInsemination'
+        required: true
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArtificialInsemination'
+          description: ''
+  /api/breeding/ai/{id}/:
+    get:
+      operationId: breeding_ai_retrieve
+      description: Get ArtificialInsemination details
+      summary: Retrieve ArtificialInsemination
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Artificial Insemination.
+        required: true
+      tags:
+      - breeding
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArtificialInsemination'
+          description: ''
+    put:
+      operationId: breeding_ai_update
+      description: Full update ArtificialInsemination
+      summary: Update ArtificialInsemination
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Artificial Insemination.
+        required: true
+      tags:
+      - breeding
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ArtificialInsemination'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ArtificialInsemination'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ArtificialInsemination'
+        required: true
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArtificialInsemination'
+          description: ''
+    patch:
+      operationId: breeding_ai_partial_update
+      description: Partial update ArtificialInsemination
+      summary: Partial Update ArtificialInsemination
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Artificial Insemination.
+        required: true
+      tags:
+      - breeding
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedArtificialInsemination'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedArtificialInsemination'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedArtificialInsemination'
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArtificialInsemination'
+          description: ''
+    delete:
+      operationId: breeding_ai_destroy
+      description: Delete ArtificialInsemination
+      summary: Delete ArtificialInsemination
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Artificial Insemination.
+        required: true
+      tags:
+      - breeding
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/breeding/ai/{id}/mark-outcome/:
+    post:
+      operationId: breeding_ai_mark_outcome_create
+      description: Mark Outcome endpoint
+      summary: Mark Outcome
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Artificial Insemination.
+        required: true
+      tags:
+      - breeding
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ArtificialInsemination'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ArtificialInsemination'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ArtificialInsemination'
+        required: true
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArtificialInsemination'
+          description: ''
+  /api/breeding/alerts/pending/:
+    get:
+      operationId: breeding_alerts_pending_retrieve
+      description: |-
+        Return all BreedingAlerts that have not yet been sent (is_sent=False),
+        sorted ascending by scheduled_date so the most imminent alerts appear first.
+
+        GET /api/breeding/alerts/pending/
+
+        Response 200
+        ------------
+        {
+            "count"  : int,
+            "alerts" : [ ...BreedingAlertSerializer... ]
+        }
+      summary: Get Details
+      tags:
+      - breeding
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/breeding/breeding-alerts/:
+    get:
+      operationId: breeding_breeding_alerts_list
+      description: List BreedingAlert items
+      summary: List BreedingAlert
+      parameters:
+      - in: query
+        name: alert_type
+        schema:
+          type: string
+          enum:
+          - BEST_BREED_WINDOW
+          - CALVING_SOON
+          - HEAT_DUE
+          - PREGNANCY_CHECK_DUE
+        description: |-
+          * `HEAT_DUE` - Heat Due
+          * `BEST_BREED_WINDOW` - Best Breeding Window
+          * `PREGNANCY_CHECK_DUE` - Pregnancy Check Due
+          * `CALVING_SOON` - Calving Soon
+      - in: query
+        name: cattle
+        schema:
+          type: integer
+      - in: query
+        name: is_sent
+        schema:
+          type: boolean
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - breeding
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedBreedingAlertList'
+          description: ''
+  /api/breeding/breeding-alerts/{id}/:
+    get:
+      operationId: breeding_breeding_alerts_retrieve
+      description: Get BreedingAlert details
+      summary: Retrieve BreedingAlert
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Breeding Alert.
+        required: true
+      tags:
+      - breeding
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BreedingAlert'
+          description: ''
+  /api/breeding/breeding-alerts/{id}/mark-sent/:
+    post:
+      operationId: breeding_breeding_alerts_mark_sent_create
+      description: Mark Sent endpoint
+      summary: Mark Sent
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Breeding Alert.
+        required: true
+      tags:
+      - breeding
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BreedingAlert'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BreedingAlert'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BreedingAlert'
+        required: true
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BreedingAlert'
+          description: ''
+  /api/breeding/cattle/{cattle_id}/ai-success-prob/:
+    get:
+      operationId: breeding_cattle_ai_success_prob_retrieve
+      description: |-
+        Estimate the AI success probability for a cattle.
+
+        GET /api/breeding/cattle/{cattle_id}/ai-success-prob/
+
+        Response 200
+        ------------
+        {
+            "success_probability": float (0.0–1.0),
+            "success_percent":     int,
+            "confidence":          "HEURISTIC" | "MODEL",
+            "key_factors":         [str, ...],
+            "recommendation":      str,
+            "alert_created":       bool   # True when a breeding window alert was also triggered
+        }
+
+        Response 404  — Cattle not found.
+      summary: Get Details
+      parameters:
+      - in: path
+        name: cattle_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - breeding
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/breeding/cattle/{cattle_id}/predict-breeding/:
+    get:
+      operationId: breeding_cattle_predict_breeding_retrieve
+      description: |-
+        Predict the optimal breeding window for a cattle using ML.
+
+        GET /api/breeding/cattle/{cattle_id}/predict-breeding/
+
+        Response 200 — success
+        ----------------------
+        {
+            "predicted_next_heat":   "YYYY-MM-DD",
+            "best_ai_date":          "YYYY-MM-DD",
+            "optimal_window_start":  "YYYY-MM-DDTHH:MM",
+            "optimal_window_end":    "YYYY-MM-DDTHH:MM",
+            "avg_cycle_length_days": float,
+            "cycles_analyzed":       int,
+            "confidence":            "LOW" | "MEDIUM" | "HIGH",
+            "alert_created":         bool     # True when best_ai_date is within 5 days
+        }
+
+        Response 200 — insufficient data
+        ---------------------------------
+        { "error": "insufficient_data", "cycles_found": N }
+
+        Response 404  — Cattle not found.
+      summary: Get Details
+      parameters:
+      - in: path
+        name: cattle_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - breeding
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/breeding/cattle/{cattle_id}/timeline/:
+    get:
+      operationId: breeding_cattle_timeline_retrieve
+      description: |-
+        Return the full reproductive history for a single cattle as a
+        chronologically sorted timeline merging heat logs, AI events, and
+        pregnancy records.
+
+        GET /api/breeding/cattle/{cattle_id}/timeline/
+
+        Response 200
+        ------------
+        {
+            "cattle_id"  : int,
+            "tag_number" : str,
+            "name"       : str,
+            "timeline"   : [
+                {
+                    "event_type" : "heat_cycle" | "ai_event" | "pregnancy",
+                    "date"       : "YYYY-MM-DD",
+                    // ... event-type-specific fields
+                },
+                ...                           // sorted ascending by date
+            ]
+        }
+
+        Response 404  — Cattle not found.
+      summary: Get Details
+      parameters:
+      - in: path
+        name: cattle_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - breeding
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/breeding/due-this-week/:
+    get:
+      operationId: breeding_due_this_week_retrieve
+      description: |-
+        Return all active pregnancies whose expected_calving_date falls within
+        the next 7 calendar days (today through today + 6 inclusive).
+
+        GET /api/breeding/due-this-week/
+
+        Response 200
+        ------------
+        {
+            "period_start" : "YYYY-MM-DD",
+            "period_end"   : "YYYY-MM-DD",
+            "count"        : int,
+            "pregnancies"  : [ ...PregnancyRecordSerializer... ]
+        }
+      summary: Get Details
+      tags:
+      - breeding
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/breeding/heat-cycles/:
+    get:
+      operationId: breeding_heat_cycles_list
+      description: List HeatCycleLog items
+      summary: List HeatCycleLog
+      parameters:
+      - in: query
+        name: cattle
+        schema:
+          type: integer
+      - in: query
+        name: date_from
+        schema:
+          type: string
+          format: date
+      - in: query
+        name: date_to
+        schema:
+          type: string
+          format: date
+      - in: query
+        name: intensity
+        schema:
+          type: string
+          enum:
+          - MODERATE
+          - STRONG
+          - WEAK
+        description: |-
+          * `WEAK` - Weak
+          * `MODERATE` - Moderate
+          * `STRONG` - Strong
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - breeding
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedHeatCycleLogList'
+          description: ''
+    post:
+      operationId: breeding_heat_cycles_create
+      description: Create a new HeatCycleLog
+      summary: Create HeatCycleLog
+      tags:
+      - breeding
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HeatCycleLog'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/HeatCycleLog'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/HeatCycleLog'
+        required: true
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HeatCycleLog'
+          description: ''
+  /api/breeding/heat-cycles/{id}/:
+    get:
+      operationId: breeding_heat_cycles_retrieve
+      description: Get HeatCycleLog details
+      summary: Retrieve HeatCycleLog
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Heat Cycle Log.
+        required: true
+      tags:
+      - breeding
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HeatCycleLog'
+          description: ''
+    put:
+      operationId: breeding_heat_cycles_update
+      description: Full update HeatCycleLog
+      summary: Update HeatCycleLog
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Heat Cycle Log.
+        required: true
+      tags:
+      - breeding
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HeatCycleLog'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/HeatCycleLog'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/HeatCycleLog'
+        required: true
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HeatCycleLog'
+          description: ''
+    patch:
+      operationId: breeding_heat_cycles_partial_update
+      description: Partial update HeatCycleLog
+      summary: Partial Update HeatCycleLog
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Heat Cycle Log.
+        required: true
+      tags:
+      - breeding
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedHeatCycleLog'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedHeatCycleLog'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedHeatCycleLog'
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HeatCycleLog'
+          description: ''
+    delete:
+      operationId: breeding_heat_cycles_destroy
+      description: Delete HeatCycleLog
+      summary: Delete HeatCycleLog
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Heat Cycle Log.
+        required: true
+      tags:
+      - breeding
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/breeding/pregnancy/:
+    get:
+      operationId: breeding_pregnancy_list
+      description: List PregnancyRecord items
+      summary: List PregnancyRecord
+      parameters:
+      - in: query
+        name: cattle
+        schema:
+          type: integer
+      - in: query
+        name: is_active
+        schema:
+          type: boolean
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - breeding
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPregnancyRecordList'
+          description: ''
+    post:
+      operationId: breeding_pregnancy_create
+      description: Create a new PregnancyRecord
+      summary: Create PregnancyRecord
+      tags:
+      - breeding
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PregnancyRecord'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PregnancyRecord'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PregnancyRecord'
+        required: true
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PregnancyRecord'
+          description: ''
+  /api/breeding/pregnancy/{id}/:
+    get:
+      operationId: breeding_pregnancy_retrieve
+      description: Get PregnancyRecord details
+      summary: Retrieve PregnancyRecord
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Pregnancy Record.
+        required: true
+      tags:
+      - breeding
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PregnancyRecord'
+          description: ''
+    put:
+      operationId: breeding_pregnancy_update
+      description: Full update PregnancyRecord
+      summary: Update PregnancyRecord
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Pregnancy Record.
+        required: true
+      tags:
+      - breeding
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PregnancyRecord'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PregnancyRecord'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PregnancyRecord'
+        required: true
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PregnancyRecord'
+          description: ''
+    patch:
+      operationId: breeding_pregnancy_partial_update
+      description: Partial update PregnancyRecord
+      summary: Partial Update PregnancyRecord
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Pregnancy Record.
+        required: true
+      tags:
+      - breeding
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedPregnancyRecord'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedPregnancyRecord'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedPregnancyRecord'
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PregnancyRecord'
+          description: ''
+    delete:
+      operationId: breeding_pregnancy_destroy
+      description: Delete PregnancyRecord
+      summary: Delete PregnancyRecord
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Pregnancy Record.
+        required: true
+      tags:
+      - breeding
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/breeding/pregnancy/{id}/record-calving/:
+    post:
+      operationId: breeding_pregnancy_record_calving_create
+      description: Record Calving endpoint
+      summary: Record Calving
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Pregnancy Record.
+        required: true
+      tags:
+      - breeding
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PregnancyRecord'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PregnancyRecord'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PregnancyRecord'
+        required: true
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PregnancyRecord'
+          description: ''
+  /api/cattle/:
+    get:
+      operationId: cattle_list
+      description: Returns paginated, filterable list of cattle.
+      summary: List Cattle
+      parameters:
+      - in: query
+        name: breed
+        schema:
+          type: string
+      - in: query
+        name: gender
+        schema:
+          type: string
+          enum:
+          - Female
+          - Male
+        description: |-
+          * `Male` - Male
+          * `Female` - Female
+      - in: query
+        name: is_active
+        schema:
+          type: boolean
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - cattle
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedCattleListList'
+          description: ''
+    post:
+      operationId: cattle_create
+      description: Create a new cattle record.
+      summary: Create Cattle
+      tags:
+      - cattle
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Cattle'
+            examples:
+              ValidRequest:
+                value:
+                  tag_number: T123
+                  name: Bessie
+                  breed: Holstein
+                  date_of_birth: '2020-01-01'
+                  gender: Female
+                  is_active: true
+                summary: Valid Request
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Cattle'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Cattle'
+        required: true
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cattle'
+              examples:
+                ValidRequest:
+                  value:
+                    tag_number: T123
+                    name: Bessie
+                    breed: Holstein
+                    date_of_birth: '2020-01-01'
+                    gender: Female
+                    is_active: true
+                  summary: Valid Request
+          description: ''
+  /api/cattle/{id}/:
+    get:
+      operationId: cattle_retrieve
+      description: Return a single cattle record with full detail.
+      summary: Retrieve Cattle
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Cattle.
+        required: true
+      tags:
+      - cattle
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cattle'
+          description: ''
+    put:
+      operationId: cattle_update
+      description: Full update of a cattle record.
+      summary: Update Cattle
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Cattle.
+        required: true
+      tags:
+      - cattle
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Cattle'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Cattle'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Cattle'
+        required: true
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cattle'
+          description: ''
+    patch:
+      operationId: cattle_partial_update
+      description: Partial update of a cattle record.
+      summary: Partial Update Cattle
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Cattle.
+        required: true
+      tags:
+      - cattle
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedCattle'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedCattle'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedCattle'
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cattle'
+          description: ''
+    delete:
+      operationId: cattle_destroy
+      description: Hard delete (use /deactivate/ for soft-delete).
+      summary: Hard Delete Cattle
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Cattle.
+        required: true
+      tags:
+      - cattle
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/cattle/{id}/dashboard/:
+    get:
+      operationId: cattle_dashboard_retrieve
+      description: Return a combined stats summary card for a single cattle.
+      summary: Cattle Dashboard Stats
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Cattle.
+        required: true
+      tags:
+      - cattle
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: Dashboard stats JSON
+  /api/cattle/{id}/deactivate/:
+    post:
+      operationId: cattle_deactivate_create
+      description: Soft-delete a cattle record by setting is_active = False.
+      summary: Deactivate Cattle
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Cattle.
+        required: true
+      tags:
+      - cattle
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: Success msg
+        '400':
+          description: Already inactive
+  /api/cattle/{id}/health-timeline/:
+    get:
+      operationId: cattle_health_timeline_retrieve
+      description: Return a merged, chronologically sorted timeline of all HealthAlerts
+        and HealthRecords.
+      summary: Health Timeline
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Cattle.
+        required: true
+      - in: query
+        name: resolved
+        schema:
+          type: boolean
+        description: Filter by resolution status
+      tags:
+      - cattle
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: Timeline JSON
+  /api/cattle/{id}/history/:
+    get:
+      operationId: cattle_history_list
+      description: Return the full versioned audit log for a single cattle record.
+      summary: Audit History
+      parameters:
+      - in: query
+        name: breed
+        schema:
+          type: string
+      - in: query
+        name: gender
+        schema:
+          type: string
+          enum:
+          - Female
+          - Male
+        description: |-
+          * `Male` - Male
+          * `Female` - Female
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Cattle.
+        required: true
+      - in: query
+        name: is_active
+        schema:
+          type: boolean
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - cattle
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAnimalHistoryList'
+          description: ''
+  /api/cattle/{id}/milk-history/:
+    get:
+      operationId: cattle_milk_history_retrieve
+      description: Return the last 30 days of MilkLog entries for a single cattle.
+      summary: Milk History
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Cattle.
+        required: true
+      tags:
+      - cattle
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: Milk History JSON
+  /api/costs/config/:
+    get:
+      operationId: costs_config_retrieve
+      description: Return or update the active milk price per litre setting.
+      summary: Get Details
+      tags:
+      - costs
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+    put:
+      operationId: costs_config_update
+      description: Return or update the active milk price per litre setting.
+      tags:
+      - costs
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/costs/feed-log/:
+    get:
+      operationId: costs_feed_log_retrieve
+      description: |-
+        List all feed logs or create a new one.
+
+        GET  /api/costs/feed-log/
+            Query params (all optional):
+                cattle_id  int   — filter by cattle PK
+                date_from  date  — YYYY-MM-DD
+                date_to    date  — YYYY-MM-DD
+                feed_type  str   — case-insensitive substring match
+
+            Response 200:
+            {
+                "count"  : int,
+                "results": [ ...FeedLogSerializer... ]
+            }
+
+        POST /api/costs/feed-log/
+            Body (JSON or form):
+                cattle_id   int     (required)
+                date        date    (required, not future)
+                feed_type   str     (required)
+                quantity_kg decimal (required, > 0)
+                cost_per_kg decimal (required, > 0)
+
+            Response 201: created FeedLog with auto-computed total_cost.
+            Response 400: validation error.
+      summary: Get Details
+      tags:
+      - costs
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: costs_feed_log_create
+      description: |-
+        List all feed logs or create a new one.
+
+        GET  /api/costs/feed-log/
+            Query params (all optional):
+                cattle_id  int   — filter by cattle PK
+                date_from  date  — YYYY-MM-DD
+                date_to    date  — YYYY-MM-DD
+                feed_type  str   — case-insensitive substring match
+
+            Response 200:
+            {
+                "count"  : int,
+                "results": [ ...FeedLogSerializer... ]
+            }
+
+        POST /api/costs/feed-log/
+            Body (JSON or form):
+                cattle_id   int     (required)
+                date        date    (required, not future)
+                feed_type   str     (required)
+                quantity_kg decimal (required, > 0)
+                cost_per_kg decimal (required, > 0)
+
+            Response 201: created FeedLog with auto-computed total_cost.
+            Response 400: validation error.
+      summary: Submit Data
+      tags:
+      - costs
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/costs/feed-log/{id}/:
+    get:
+      operationId: costs_feed_log_retrieve_2
+      description: |-
+        Retrieve, update, or delete a single FeedLog.
+
+        GET    /api/costs/feed-log/{id}/
+        PUT    /api/costs/feed-log/{id}/
+        PATCH  /api/costs/feed-log/{id}/
+        DELETE /api/costs/feed-log/{id}/
+      summary: Get Details
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - costs
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+    put:
+      operationId: costs_feed_log_update
+      description: |-
+        Retrieve, update, or delete a single FeedLog.
+
+        GET    /api/costs/feed-log/{id}/
+        PUT    /api/costs/feed-log/{id}/
+        PATCH  /api/costs/feed-log/{id}/
+        DELETE /api/costs/feed-log/{id}/
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - costs
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+    patch:
+      operationId: costs_feed_log_partial_update
+      description: |-
+        Retrieve, update, or delete a single FeedLog.
+
+        GET    /api/costs/feed-log/{id}/
+        PUT    /api/costs/feed-log/{id}/
+        PATCH  /api/costs/feed-log/{id}/
+        DELETE /api/costs/feed-log/{id}/
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - costs
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: costs_feed_log_destroy
+      description: |-
+        Retrieve, update, or delete a single FeedLog.
+
+        GET    /api/costs/feed-log/{id}/
+        PUT    /api/costs/feed-log/{id}/
+        PATCH  /api/costs/feed-log/{id}/
+        DELETE /api/costs/feed-log/{id}/
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - costs
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/costs/low-performers/:
+    get:
+      operationId: costs_low_performers_retrieve
+      description: Returns bottom-5 cattle from the farm-wide summary for the current
+        month.
+      summary: Get Details
+      tags:
+      - costs
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/costs/roi/:
+    get:
+      operationId: costs_roi_retrieve
+      description: Deprecated — use CattleMonthlySummaryView or FarmWideSummaryView.
+      summary: Get Details
+      tags:
+      - costs
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/costs/summary/{cattle_id}/:
+    get:
+      operationId: costs_summary_retrieve
+      description: |-
+        Calculate and return the full ROI breakdown for a single cattle in a month.
+
+        GET /api/costs/summary/{cattle_id}/?month=MM&year=YYYY
+
+        Path param
+        ----------
+        cattle_id : int — Cattle PK
+
+        Query params
+        ------------
+        month : int 1–12 (default: current month)
+        year  : int      (default: current year)
+
+        Response 200
+        ------------
+        {
+            "cattle_id"           : int,
+            "tag_number"          : str,
+            "name"                : str,
+            "month"               : int,
+            "year"                : int,
+            "total_feed_cost"     : float,   // INR
+            "total_milk_litres"   : float,
+            "milk_price_per_litre": float,   // INR
+            "revenue"             : float,   // INR
+            "profit"              : float,   // INR (negative = loss)
+            "cost_per_litre"      : float | null,
+            "profit_margin"       : float | null,
+            "roi_ratio"           : float | null,
+            "has_feed_data"       : bool,
+            "has_milk_data"       : bool
+        }
+
+        Response 400 — invalid month/year.
+        Response 404 — cattle not found.
+      summary: Get Details
+      parameters:
+      - in: path
+        name: cattle_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - costs
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/costs/summary/farm/:
+    get:
+      operationId: costs_summary_farm_retrieve
+      description: |-
+        Aggregate ROI for all active cattle in a month and return farm totals
+        plus ranked top-5 / bottom-5 by profit.
+
+        GET /api/costs/summary/farm/?month=MM&year=YYYY
+
+        Query params
+        ------------
+        month : int 1–12 (default: current month)
+        year  : int      (default: current year)
+
+        Response 200
+        ------------
+        {
+            "month"                   : int,
+            "year"                    : int,
+            "milk_price_per_litre"    : float,
+            "cattle_count"            : int,
+            "farm_total_feed_cost"    : float,
+            "farm_total_milk_litres"  : float,
+            "farm_total_revenue"      : float,
+            "farm_total_profit"       : float,
+            "top_5_profitable"        : [ ...CattleROI... ],
+            "bottom_5_profitable"     : [ ...CattleROI... ],
+            "all_cattle"              : [ ...CattleROI... ]
+        }
+      summary: Get Details
+      tags:
+      - costs
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/dashboard/summary/:
+    get:
+      operationId: dashboard_summary_retrieve
+      description: |-
+        GET /api/dashboard/summary/
+        Returns KPI data for the Dashboard page.
+        Full implementation in the dashboard feature task.
+      tags:
+      - dashboard
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/export/alerts/:
+    get:
+      operationId: export_alerts_retrieve
+      description: GET /api/export/alerts/
+      tags:
+      - export
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/export/milk-logs/:
+    get:
+      operationId: export_milk_logs_retrieve
+      description: GET /api/export/milk-logs/
+      tags:
+      - export
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/export/roi/:
+    get:
+      operationId: export_roi_retrieve
+      description: GET /api/export/roi/
+      tags:
+      - export
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/forecast/{cattle_id}/:
+    get:
+      operationId: forecast_retrieve
+      description: |-
+        Return a 30-day milk production forecast for a single cattle.
+
+        GET /api/forecast/{cattle_id}/?days=30
+
+        Path param
+        ----------
+        cattle_id : int — Cattle PK
+
+        Query params
+        ------------
+        days     : int 1–90 (default 30)
+            Number of future days to forecast.
+        history  : int (default 90)
+            Days of historical MilkLog data to train on.
+        refresh  : "true" (default "false")
+            Force re-generation even if a fresh cached forecast exists.
+
+        Response 200 — Chart.js-ready payload
+        --------------------------------------
+        {
+            "cattle_id"    : int,
+            "tag_number"   : str,
+            "generated_at" : "ISO-8601 datetime",
+            "forecast_days": int,
+            "stale"        : bool,   // true if cached result is > 24 h old
+            "labels"       : ["YYYY-MM-DD", ...],
+            "predicted"    : [float, ...],
+            "lower_bound"  : [float, ...],
+            "upper_bound"  : [float, ...]
+        }
+
+        Response 400
+        ------------
+        { "detail": "...", "available_days": int, "required_days": int }
+            Returned when the cattle has fewer than 30 days of MilkLog data.
+
+        Response 404 — Cattle not found.
+      summary: Get Details
+      parameters:
+      - in: path
+        name: cattle_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - forecast
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/forecast/herd/:
+    get:
+      operationId: forecast_herd_retrieve
+      description: |-
+        Return a herd-level forecast by summing the most recent per-cattle
+        forecasts for all active cattle.
+
+        GET /api/forecast/herd/?days=30
+
+        Query params
+        ------------
+        days : int 1–90 (default 30)
+
+        Response 200
+        ------------
+        {
+            "forecast_days"      : int,
+            "cattle_included"    : int,
+            "labels"             : ["YYYY-MM-DD", ...],
+            "predicted"          : [float, ...],
+            "lower_bound"        : [float, ...],
+            "upper_bound"        : [float, ...]
+        }
+
+        Response 404 — no forecast data available for any cattle.
+      summary: Get Details
+      tags:
+      - forecast
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/forecast/refresh/:
+    post:
+      operationId: forecast_refresh_create
+      description: |-
+        Enqueue a background task to regenerate forecasts for all active cattle.
+
+        POST /api/forecast/refresh/
+
+        Response 202
+        ------------
+        {
+            "detail"  : "Forecast regeneration task queued.",
+            "task_id" : "<celery-task-id>"
+        }
+      summary: Submit Data
+      tags:
+      - forecast
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/milk/cattle/{cattle_id}/trend/:
+    get:
+      operationId: milk_cattle_trend_retrieve
+      description: |-
+        Return daily milk totals for a single cattle over a trailing window.
+
+        Designed for Chart.js line chart consumption — the response includes
+        separate ``labels`` (dates) and ``data`` (totals) arrays alongside a
+        ``logs`` array of full daily objects.
+
+        GET /api/milk/cattle/{id}/trend/?days=30
+
+        Path param
+        ----------
+        id : int — Cattle PK
+
+        Query params
+        ------------
+        days : int  1–365, default 30
+            Number of trailing calendar days to include (today - days + 1 → today).
+
+        Response 200
+        ------------
+        {
+            "cattle_id"   : int,
+            "tag_number"  : str,
+            "name"        : str,
+            "period_days" : int,
+            "period_start": "YYYY-MM-DD",
+            "period_end"  : "YYYY-MM-DD",
+            "chart": {
+                "labels"  : ["YYYY-MM-DD", ...],   // one entry per day WITH a log
+                "data"    : [float, ...]            // matching total_litres values
+            },
+            "summary": {
+                "total_litres"   : float,
+                "avg_daily"      : float,
+                "max_daily"      : float,
+                "log_days"       : int              // days that have a log entry
+            },
+            "logs": [
+                {
+                    "date"           : "YYYY-MM-DD",
+                    "morning_litres" : float,
+                    "evening_litres" : float,
+                    "total_litres"   : float
+                },
+                ...
+            ]
+        }
+
+        Response 400  — invalid ``days`` param
+        Response 404  — Cattle not found
+      summary: Get Details
+      parameters:
+      - in: path
+        name: cattle_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - milk
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/milk/daily-summary/:
+    get:
+      operationId: milk_daily_summary_retrieve
+      description: |-
+        Return total farm milk production for a single calendar day.
+
+        GET /api/milk/daily-summary/?date=YYYY-MM-DD
+
+        Query params
+        ------------
+        date : YYYY-MM-DD (required)
+            The calendar date to summarise.  Must not be in the future.
+
+        Response 200
+        ------------
+        {
+            "date"           : "YYYY-MM-DD",
+            "total_litres"   : float,   // herd total
+            "cattle_count"   : int,     // number of cattle with a log that day
+            "avg_per_cattle" : float    // total / cattle_count, or 0 if no logs
+        }
+
+        Response 400
+        ------------
+        { "detail": "<error message>" }
+            Returned when the date param is missing, malformed, or in the future.
+      summary: Get Details
+      tags:
+      - milk
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/milk/logs/:
+    get:
+      operationId: milk_logs_list
+      description: List MilkLog items
+      summary: List MilkLog
+      parameters:
+      - in: query
+        name: cattle
+        schema:
+          type: integer
+      - in: query
+        name: date
+        schema:
+          type: string
+          format: date
+      - in: query
+        name: date_from
+        schema:
+          type: string
+          format: date
+      - in: query
+        name: date_to
+        schema:
+          type: string
+          format: date
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - milk
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedMilkLogList'
+          description: ''
+    post:
+      operationId: milk_logs_create
+      description: Create a new MilkLog
+      summary: Create MilkLog
+      tags:
+      - milk
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MilkLog'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MilkLog'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MilkLog'
+        required: true
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MilkLog'
+          description: ''
+  /api/milk/logs/{id}/:
+    get:
+      operationId: milk_logs_retrieve
+      description: Get MilkLog details
+      summary: Retrieve MilkLog
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Milk Log.
+        required: true
+      tags:
+      - milk
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MilkLog'
+          description: ''
+    put:
+      operationId: milk_logs_update
+      description: Full update MilkLog
+      summary: Update MilkLog
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Milk Log.
+        required: true
+      tags:
+      - milk
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MilkLog'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MilkLog'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MilkLog'
+        required: true
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MilkLog'
+          description: ''
+    patch:
+      operationId: milk_logs_partial_update
+      description: Partial update MilkLog
+      summary: Partial Update MilkLog
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Milk Log.
+        required: true
+      tags:
+      - milk
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedMilkLog'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedMilkLog'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedMilkLog'
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MilkLog'
+          description: ''
+    delete:
+      operationId: milk_logs_destroy
+      description: Delete MilkLog
+      summary: Delete MilkLog
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Milk Log.
+        required: true
+      tags:
+      - milk
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/milk/top-producers/:
+    get:
+      operationId: milk_top_producers_retrieve
+      description: |-
+        Return a ranked list of cattle by total milk yield for a given month.
+
+        GET /api/milk/top-producers/?month=MM&year=YYYY
+
+        Query params
+        ------------
+        month : int 1–12  (default: current month)
+        year  : int       (default: current year, max: current year)
+
+        Response 200
+        ------------
+        {
+            "month"    : int,
+            "year"     : int,
+            "count"    : int,          // number of cattle in the ranking
+            "producers": [
+                {
+                    "rank"            : int,   // 1-based, ascending by total
+                    "cattle_id"       : int,
+                    "tag_number"      : str,
+                    "name"            : str,
+                    "total_litres"    : float, // sum for the month
+                    "avg_daily_litres": float,
+                    "log_count"       : int    // number of days logged
+                },
+                ...
+            ]
+        }
+
+        Response 400 — invalid month/year params
+      summary: Get Details
+      tags:
+      - milk
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/schema/:
+    get:
+      operationId: schema_retrieve
+      description: |-
+        OpenApi3 schema for this API. Format can be selected via content negotiation.
+
+        - YAML: application/vnd.oai.openapi
+        - JSON: application/vnd.oai.openapi+json
+      parameters:
+      - in: query
+        name: format
+        schema:
+          type: string
+          enum:
+          - json
+          - yaml
+      - in: query
+        name: lang
+        schema:
+          type: string
+          enum:
+          - af
+          - ar
+          - ar-dz
+          - ast
+          - az
+          - be
+          - bg
+          - bn
+          - br
+          - bs
+          - ca
+          - ckb
+          - cs
+          - cy
+          - da
+          - de
+          - dsb
+          - el
+          - en
+          - en-au
+          - en-gb
+          - eo
+          - es
+          - es-ar
+          - es-co
+          - es-mx
+          - es-ni
+          - es-ve
+          - et
+          - eu
+          - fa
+          - fi
+          - fr
+          - fy
+          - ga
+          - gd
+          - gl
+          - he
+          - hi
+          - hr
+          - hsb
+          - ht
+          - hu
+          - hy
+          - ia
+          - id
+          - ig
+          - io
+          - is
+          - it
+          - ja
+          - ka
+          - kab
+          - kk
+          - km
+          - kn
+          - ko
+          - ky
+          - lb
+          - lt
+          - lv
+          - mk
+          - ml
+          - mn
+          - mr
+          - ms
+          - my
+          - nb
+          - ne
+          - nl
+          - nn
+          - os
+          - pa
+          - pl
+          - pt
+          - pt-br
+          - ro
+          - ru
+          - sk
+          - sl
+          - sq
+          - sr
+          - sr-latn
+          - sv
+          - sw
+          - ta
+          - te
+          - tg
+          - th
+          - tk
+          - tr
+          - tt
+          - udm
+          - ug
+          - uk
+          - ur
+          - uz
+          - vi
+          - zh-hans
+          - zh-hant
+      tags:
+      - schema
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/vnd.oai.openapi:
+              schema:
+                type: object
+                additionalProperties: {}
+            application/yaml:
+              schema:
+                type: object
+                additionalProperties: {}
+            application/vnd.oai.openapi+json:
+              schema:
+                type: object
+                additionalProperties: {}
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/vet-reports/:
+    get:
+      operationId: vet_reports_retrieve
+      description: |-
+        List VetReports, optionally filtered by cattle.
+
+        GET /api/vet-reports/?cattle_id=<int>
+
+        Query params
+        ------------
+        cattle_id : int (optional) — filter to a specific cattle
+
+        Response 200
+        ------------
+        {
+            "count"  : int,
+            "results": [ ...VetReport objects... ]
+        }
+      summary: Get Details
+      tags:
+      - vet-reports
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/vet-reports/{id}/:
+    get:
+      operationId: vet_reports_retrieve_2
+      description: |-
+        Retrieve the current status and AI summary of a single VetReport.
+
+        GET /api/vet-reports/{id}/
+
+        Response 200
+        ------------
+        {
+            "id"              : int,
+            "cattle_id"       : int,
+            "tag_number"      : str,
+            "cattle_name"     : str,
+            "original_filename": str,
+            "status"          : "pending_summarization" | "summary_ready" | "summary_failed",
+            "ai_summary"      : str | null,
+            "error_reason"    : str | null,
+            "upload_date"     : "ISO-8601",
+            "processed_at"    : "ISO-8601" | null
+        }
+
+        Response 404 — report not found
+      summary: Get Details
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - vet-reports
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/vet-reports/upload/:
+    post:
+      operationId: vet_reports_upload_create
+      description: |-
+        Upload a veterinary report PDF or TXT file and trigger AI summarisation.
+
+        POST /api/vet-reports/upload/
+
+        Request (multipart/form-data)
+        -----------------------------
+        cattle_id : int  (required) — PK of the Cattle this report belongs to
+        file      : File (required) — PDF (.pdf) or plain text (.txt)
+
+        Constraints
+        -----------
+        * Allowed MIME types: application/pdf, text/plain
+        * Maximum file size: 10 MB
+        * Cattle must exist and be active
+
+        Response 202 — report accepted, summarisation queued
+        ----------------------------------------------------
+        {
+            "report_id"    : int,
+            "cattle_id"    : int,
+            "tag_number"   : str,
+            "filename"     : str,
+            "status"       : "pending_summarization",
+            "detail"       : "Report uploaded. AI summarisation is in progress.",
+            "poll_url"     : "/api/vet-reports/{id}/"
+        }
+
+        Response 400 — validation error
+        Response 404 — cattle not found
+        Response 413 — file too large
+        Response 415 — unsupported file type
+      summary: Submit Data
+      tags:
+      - vet-reports
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+components:
+  schemas:
+    ActionTypeEnum:
+      enum:
+      - created
+      - updated
+      - deleted
+      type: string
+      description: |-
+        * `created` - Created
+        * `updated` - Updated
+        * `deleted` - Deleted
+    AlertTypeEnum:
+      enum:
+      - HEAT_DUE
+      - BEST_BREED_WINDOW
+      - PREGNANCY_CHECK_DUE
+      - CALVING_SOON
+      type: string
+      description: |-
+        * `HEAT_DUE` - Heat Due
+        * `BEST_BREED_WINDOW` - Best Breeding Window
+        * `PREGNANCY_CHECK_DUE` - Pregnancy Check Due
+        * `CALVING_SOON` - Calving Soon
+    AnimalHistory:
+      type: object
+      description: |-
+        Read-only serializer for AnimalHistory audit log entries.
+
+        ``changed_by_username`` surfaces the actor's username without exposing
+        the full user object.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        action_type:
+          allOf:
+          - $ref: '#/components/schemas/ActionTypeEnum'
+          readOnly: true
+        changed_at:
+          type: string
+          format: date-time
+          readOnly: true
+        changed_by_username:
+          type: string
+          nullable: true
+          description: Return the username of the actor, or None if the user was deleted.
+          readOnly: true
+        changed_fields:
+          readOnly: true
+        previous_values:
+          readOnly: true
+      required:
+      - action_type
+      - changed_at
+      - changed_by_username
+      - changed_fields
+      - id
+      - previous_values
+    ArtificialInsemination:
+      type: object
+      description: |-
+        Serializer for ArtificialInsemination records.
+
+        Read fields
+        -----------
+        cattle_tag    : str — tag_number of the related Cattle
+        days_since_ai : int — calendar days elapsed since ai_date (None if future)
+
+        Write fields
+        ------------
+        cattle_id     : int — FK write path
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        cattle_id:
+          type: integer
+          writeOnly: true
+        cattle_tag:
+          type: string
+          readOnly: true
+        ai_date:
+          type: string
+          format: date
+        semen_bull_name:
+          type: string
+          maxLength: 150
+        semen_batch_id:
+          type: string
+          maxLength: 100
+        technician_name:
+          type: string
+          maxLength: 150
+        notes:
+          type: string
+        outcome:
+          $ref: '#/components/schemas/OutcomeEnum'
+        days_since_ai:
+          type: integer
+          nullable: true
+          description: Calendar days elapsed since the AI date.
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - ai_date
+      - cattle_id
+      - cattle_tag
+      - created_at
+      - days_since_ai
+      - id
+      - semen_batch_id
+      - semen_bull_name
+      - technician_name
+      - updated_at
+    BlankEnum:
+      enum:
+      - ''
+    BreedingAlert:
+      type: object
+      description: |-
+        Serializer for BreedingAlert.
+
+        cattle_tag is exposed as a read-only convenience field.
+        cattle_id is the write path.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        cattle_id:
+          type: integer
+          writeOnly: true
+        cattle_tag:
+          type: string
+          readOnly: true
+        alert_type:
+          $ref: '#/components/schemas/AlertTypeEnum'
+        scheduled_date:
+          type: string
+          format: date
+        message:
+          type: string
+        is_sent:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - alert_type
+      - cattle_id
+      - cattle_tag
+      - created_at
+      - id
+      - message
+      - scheduled_date
+    CalfGenderEnum:
+      enum:
+      - Male
+      - Female
+      - Unknown
+      type: string
+      description: |-
+        * `Male` - Male
+        * `Female` - Female
+        * `Unknown` - Unknown
+    Cattle:
+      type: object
+      description: |-
+        Full Cattle serializer used for create, retrieve, and update operations.
+
+        Extra computed field
+        --------------------
+        age_years : float
+            Derived from ``date_of_birth``; read-only, not stored in the DB.
+
+        Validation
+        ----------
+        * ``tag_number`` must be unique (checked against existing records,
+          skipping the current instance on updates).
+        * ``date_of_birth`` must not be in the future.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        tag_number:
+          type: string
+          maxLength: 20
+        name:
+          type: string
+          maxLength: 100
+        breed:
+          type: string
+          maxLength: 100
+        date_of_birth:
+          type: string
+          format: date
+        age_years:
+          type: number
+          format: double
+          description: Cattle age in fractional years, computed from date_of_birth.
+          readOnly: true
+        gender:
+          $ref: '#/components/schemas/GenderEnum'
+        weight_kg:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,4}(?:\.\d{0,2})?$
+          nullable: true
+        purchase_date:
+          type: string
+          format: date
+          nullable: true
+        is_active:
+          type: boolean
+        notes:
+          type: string
+          maxLength: 1000
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - age_years
+      - breed
+      - created_at
+      - date_of_birth
+      - gender
+      - id
+      - name
+      - tag_number
+      - updated_at
+    CattleList:
+      type: object
+      description: |-
+        Lightweight Cattle serializer used in list responses.
+
+        Omits ``notes``, ``purchase_date``, and timestamp fields to reduce
+        payload size when fetching many records.  Includes ``age_years`` because
+        it's useful for table-row display without a detail fetch.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        tag_number:
+          type: string
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        breed:
+          type: string
+          readOnly: true
+        gender:
+          allOf:
+          - $ref: '#/components/schemas/GenderEnum'
+          readOnly: true
+        date_of_birth:
+          type: string
+          format: date
+          readOnly: true
+        age_years:
+          type: number
+          format: double
+          description: Compute and return age in fractional years.
+          readOnly: true
+        weight_kg:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,4}(?:\.\d{0,2})?$
+          readOnly: true
+          nullable: true
+        is_active:
+          type: boolean
+          readOnly: true
+      required:
+      - age_years
+      - breed
+      - date_of_birth
+      - gender
+      - id
+      - is_active
+      - name
+      - tag_number
+      - weight_kg
+    GenderEnum:
+      enum:
+      - Male
+      - Female
+      type: string
+      description: |-
+        * `Male` - Male
+        * `Female` - Female
+    HeatCycleLog:
+      type: object
+      description: |-
+        Serializer for HeatCycleLog records.
+
+        Read fields
+        -----------
+        cattle_tag : str — tag_number of the related Cattle
+
+        Write fields
+        ------------
+        cattle_id  : int — FK write path (accepts Cattle PK)
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        cattle_id:
+          type: integer
+          writeOnly: true
+          description: PK of the active Cattle to associate this heat log with.
+        cattle_tag:
+          type: string
+          readOnly: true
+          description: Tag number of the cattle (read-only).
+        observed_date:
+          type: string
+          format: date
+        signs:
+          type: string
+        intensity:
+          $ref: '#/components/schemas/IntensityEnum'
+        recorded_by:
+          type: integer
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - cattle_id
+      - cattle_tag
+      - created_at
+      - id
+      - intensity
+      - observed_date
+      - recorded_by
+    IntensityEnum:
+      enum:
+      - WEAK
+      - MODERATE
+      - STRONG
+      type: string
+      description: |-
+        * `WEAK` - Weak
+        * `MODERATE` - Moderate
+        * `STRONG` - Strong
+    MilkLog:
+      type: object
+      description: |-
+        Full MilkLog serializer.
+
+        Read fields
+        -----------
+        cattle_tag  : str   — tag_number of the related Cattle (display-only)
+        total_litres: Decimal — auto-computed by the model; included in responses
+
+        Write fields
+        ------------
+        cattle_id   : int   — FK write path (accepts the Cattle PK on POST/PUT)
+
+        Validation
+        ----------
+        1. morning_litres must be >= 0
+        2. evening_litres must be >= 0
+        3. morning_litres + evening_litres must not exceed MAX_DAILY_LITRES (60 L)
+        4. date must not be in the future
+        5. (cattle, date) must be unique — checked against DB, skipping self on update
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        cattle_id:
+          type: integer
+          writeOnly: true
+          description: PK of the Cattle record to associate this log with.
+        cattle_tag:
+          type: string
+          readOnly: true
+          description: Tag number of the cattle (read-only).
+        date:
+          type: string
+          format: date
+        morning_litres:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,4}(?:\.\d{0,2})?$
+        evening_litres:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,4}(?:\.\d{0,2})?$
+        total_litres:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,5}(?:\.\d{0,2})?$
+          readOnly: true
+        recorded_by:
+          type: integer
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - cattle_id
+      - cattle_tag
+      - created_at
+      - date
+      - evening_litres
+      - id
+      - morning_litres
+      - recorded_by
+      - total_litres
+    NullEnum:
+      enum:
+      - null
+    OutcomeEnum:
+      enum:
+      - PENDING
+      - CONFIRMED_PREGNANT
+      - FAILED
+      type: string
+      description: |-
+        * `PENDING` - Pending
+        * `CONFIRMED_PREGNANT` - Confirmed Pregnant
+        * `FAILED` - Failed
+    PaginatedAnimalHistoryList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/AnimalHistory'
+    PaginatedArtificialInseminationList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ArtificialInsemination'
+    PaginatedBreedingAlertList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/BreedingAlert'
+    PaginatedCattleListList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/CattleList'
+    PaginatedHeatCycleLogList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/HeatCycleLog'
+    PaginatedMilkLogList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/MilkLog'
+    PaginatedPregnancyRecordList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/PregnancyRecord'
+    PatchedArtificialInsemination:
+      type: object
+      description: |-
+        Serializer for ArtificialInsemination records.
+
+        Read fields
+        -----------
+        cattle_tag    : str — tag_number of the related Cattle
+        days_since_ai : int — calendar days elapsed since ai_date (None if future)
+
+        Write fields
+        ------------
+        cattle_id     : int — FK write path
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        cattle_id:
+          type: integer
+          writeOnly: true
+        cattle_tag:
+          type: string
+          readOnly: true
+        ai_date:
+          type: string
+          format: date
+        semen_bull_name:
+          type: string
+          maxLength: 150
+        semen_batch_id:
+          type: string
+          maxLength: 100
+        technician_name:
+          type: string
+          maxLength: 150
+        notes:
+          type: string
+        outcome:
+          $ref: '#/components/schemas/OutcomeEnum'
+        days_since_ai:
+          type: integer
+          nullable: true
+          description: Calendar days elapsed since the AI date.
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+    PatchedCattle:
+      type: object
+      description: |-
+        Full Cattle serializer used for create, retrieve, and update operations.
+
+        Extra computed field
+        --------------------
+        age_years : float
+            Derived from ``date_of_birth``; read-only, not stored in the DB.
+
+        Validation
+        ----------
+        * ``tag_number`` must be unique (checked against existing records,
+          skipping the current instance on updates).
+        * ``date_of_birth`` must not be in the future.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        tag_number:
+          type: string
+          maxLength: 20
+        name:
+          type: string
+          maxLength: 100
+        breed:
+          type: string
+          maxLength: 100
+        date_of_birth:
+          type: string
+          format: date
+        age_years:
+          type: number
+          format: double
+          description: Cattle age in fractional years, computed from date_of_birth.
+          readOnly: true
+        gender:
+          $ref: '#/components/schemas/GenderEnum'
+        weight_kg:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,4}(?:\.\d{0,2})?$
+          nullable: true
+        purchase_date:
+          type: string
+          format: date
+          nullable: true
+        is_active:
+          type: boolean
+        notes:
+          type: string
+          maxLength: 1000
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+    PatchedHeatCycleLog:
+      type: object
+      description: |-
+        Serializer for HeatCycleLog records.
+
+        Read fields
+        -----------
+        cattle_tag : str — tag_number of the related Cattle
+
+        Write fields
+        ------------
+        cattle_id  : int — FK write path (accepts Cattle PK)
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        cattle_id:
+          type: integer
+          writeOnly: true
+          description: PK of the active Cattle to associate this heat log with.
+        cattle_tag:
+          type: string
+          readOnly: true
+          description: Tag number of the cattle (read-only).
+        observed_date:
+          type: string
+          format: date
+        signs:
+          type: string
+        intensity:
+          $ref: '#/components/schemas/IntensityEnum'
+        recorded_by:
+          type: integer
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+    PatchedMilkLog:
+      type: object
+      description: |-
+        Full MilkLog serializer.
+
+        Read fields
+        -----------
+        cattle_tag  : str   — tag_number of the related Cattle (display-only)
+        total_litres: Decimal — auto-computed by the model; included in responses
+
+        Write fields
+        ------------
+        cattle_id   : int   — FK write path (accepts the Cattle PK on POST/PUT)
+
+        Validation
+        ----------
+        1. morning_litres must be >= 0
+        2. evening_litres must be >= 0
+        3. morning_litres + evening_litres must not exceed MAX_DAILY_LITRES (60 L)
+        4. date must not be in the future
+        5. (cattle, date) must be unique — checked against DB, skipping self on update
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        cattle_id:
+          type: integer
+          writeOnly: true
+          description: PK of the Cattle record to associate this log with.
+        cattle_tag:
+          type: string
+          readOnly: true
+          description: Tag number of the cattle (read-only).
+        date:
+          type: string
+          format: date
+        morning_litres:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,4}(?:\.\d{0,2})?$
+        evening_litres:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,4}(?:\.\d{0,2})?$
+        total_litres:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,5}(?:\.\d{0,2})?$
+          readOnly: true
+        recorded_by:
+          type: integer
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+    PatchedPregnancyRecord:
+      type: object
+      description: |-
+        Serializer for PregnancyRecord.
+
+        Read fields
+        -----------
+        cattle_tag                 : str
+        days_until_calving         : int  — days remaining to expected_calving_date;
+                                            negative means overdue; None after calving
+        gestation_progress_percent : float — 0–100 % of 280-day gestation completed;
+                                              100 once calved or overdue
+
+        Write fields
+        ------------
+        cattle_id  : int
+        ai_event   : int (nullable) — PK of the linked ArtificialInsemination
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        cattle_id:
+          type: integer
+          writeOnly: true
+        cattle_tag:
+          type: string
+          readOnly: true
+        ai_event:
+          type: integer
+          nullable: true
+        confirmed_date:
+          type: string
+          format: date
+        expected_calving_date:
+          type: string
+          format: date
+        actual_calving_date:
+          type: string
+          format: date
+          nullable: true
+        calf_gender:
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/CalfGenderEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        is_active:
+          type: boolean
+        days_until_calving:
+          type: integer
+          nullable: true
+          description: |-
+            Days remaining until expected_calving_date.
+
+            Returns None once the actual calving date is recorded (pregnancy over).
+            Negative value means the animal is overdue.
+          readOnly: true
+        gestation_progress_percent:
+          type: number
+          format: double
+          description: |-
+            Percentage of the 280-day gestation period completed.
+
+            Clamped to [0, 100]. Returns 100 once calved or overdue.
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+    PregnancyRecord:
+      type: object
+      description: |-
+        Serializer for PregnancyRecord.
+
+        Read fields
+        -----------
+        cattle_tag                 : str
+        days_until_calving         : int  — days remaining to expected_calving_date;
+                                            negative means overdue; None after calving
+        gestation_progress_percent : float — 0–100 % of 280-day gestation completed;
+                                              100 once calved or overdue
+
+        Write fields
+        ------------
+        cattle_id  : int
+        ai_event   : int (nullable) — PK of the linked ArtificialInsemination
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        cattle_id:
+          type: integer
+          writeOnly: true
+        cattle_tag:
+          type: string
+          readOnly: true
+        ai_event:
+          type: integer
+          nullable: true
+        confirmed_date:
+          type: string
+          format: date
+        expected_calving_date:
+          type: string
+          format: date
+        actual_calving_date:
+          type: string
+          format: date
+          nullable: true
+        calf_gender:
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/CalfGenderEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        is_active:
+          type: boolean
+        days_until_calving:
+          type: integer
+          nullable: true
+          description: |-
+            Days remaining until expected_calving_date.
+
+            Returns None once the actual calving date is recorded (pregnancy over).
+            Negative value means the animal is overdue.
+          readOnly: true
+        gestation_progress_percent:
+          type: number
+          format: double
+          description: |-
+            Percentage of the 280-day gestation period completed.
+
+            Clamped to [0, 100]. Returns 100 once calved or overdue.
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - cattle_id
+      - cattle_tag
+      - confirmed_date
+      - created_at
+      - days_until_calving
+      - expected_calving_date
+      - gestation_progress_percent
+      - id
+      - updated_at
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: sessionid
+    tokenAuth:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: Token-based authentication with required prefix "Token"

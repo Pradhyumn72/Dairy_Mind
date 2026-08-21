@@ -24,6 +24,8 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
 from django_filters.rest_framework import DjangoFilterBackend
+from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiExample, OpenApiParameter, OpenApiResponse
+from drf_spectacular.types import OpenApiTypes
 from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -57,6 +59,14 @@ logger = logging.getLogger(__name__)
 
 # ── HeatCycleLogViewSet ───────────────────────────────────────────────────────
 
+@extend_schema_view(
+    list=extend_schema(summary="List HeatCycleLog", description="List HeatCycleLog items"),
+    create=extend_schema(summary="Create HeatCycleLog", description="Create a new HeatCycleLog"),
+    retrieve=extend_schema(summary="Retrieve HeatCycleLog", description="Get HeatCycleLog details"),
+    update=extend_schema(summary="Update HeatCycleLog", description="Full update HeatCycleLog"),
+    partial_update=extend_schema(summary="Partial Update HeatCycleLog", description="Partial update HeatCycleLog"),
+    destroy=extend_schema(summary="Delete HeatCycleLog", description="Delete HeatCycleLog")
+)
 class HeatCycleLogViewSet(viewsets.ModelViewSet):
     """
     ViewSet for HeatCycleLog records.
@@ -97,6 +107,14 @@ class HeatCycleLogViewSet(viewsets.ModelViewSet):
 
 # ── ArtificialInseminationViewSet ─────────────────────────────────────────────
 
+@extend_schema_view(
+    list=extend_schema(summary="List ArtificialInsemination", description="List ArtificialInsemination items"),
+    create=extend_schema(summary="Create ArtificialInsemination", description="Create a new ArtificialInsemination"),
+    retrieve=extend_schema(summary="Retrieve ArtificialInsemination", description="Get ArtificialInsemination details"),
+    update=extend_schema(summary="Update ArtificialInsemination", description="Full update ArtificialInsemination"),
+    partial_update=extend_schema(summary="Partial Update ArtificialInsemination", description="Partial update ArtificialInsemination"),
+    destroy=extend_schema(summary="Delete ArtificialInsemination", description="Delete ArtificialInsemination")
+)
 class ArtificialInseminationViewSet(viewsets.ModelViewSet):
     """
     ViewSet for ArtificialInsemination records.
@@ -128,6 +146,7 @@ class ArtificialInseminationViewSet(viewsets.ModelViewSet):
     ordering_fields   = ["ai_date", "outcome"]
     ordering          = ["-ai_date"]
 
+    @extend_schema(summary="Mark Outcome", description="Mark Outcome endpoint")
     @action(detail=True, methods=["post"], url_path="mark-outcome")
     def mark_outcome(self, request, pk=None):
         """
@@ -238,6 +257,14 @@ class ArtificialInseminationViewSet(viewsets.ModelViewSet):
 
 # ── PregnancyRecordViewSet ────────────────────────────────────────────────────
 
+@extend_schema_view(
+    list=extend_schema(summary="List PregnancyRecord", description="List PregnancyRecord items"),
+    create=extend_schema(summary="Create PregnancyRecord", description="Create a new PregnancyRecord"),
+    retrieve=extend_schema(summary="Retrieve PregnancyRecord", description="Get PregnancyRecord details"),
+    update=extend_schema(summary="Update PregnancyRecord", description="Full update PregnancyRecord"),
+    partial_update=extend_schema(summary="Partial Update PregnancyRecord", description="Partial update PregnancyRecord"),
+    destroy=extend_schema(summary="Delete PregnancyRecord", description="Delete PregnancyRecord")
+)
 class PregnancyRecordViewSet(viewsets.ModelViewSet):
     """
     ViewSet for PregnancyRecord.
@@ -267,6 +294,7 @@ class PregnancyRecordViewSet(viewsets.ModelViewSet):
     ordering_fields   = ["confirmed_date", "expected_calving_date"]
     ordering          = ["-confirmed_date"]
 
+    @extend_schema(summary="Record Calving", description="Record Calving endpoint")
     @action(detail=True, methods=["post"], url_path="record-calving")
     def record_calving(self, request, pk=None):
         """
@@ -371,6 +399,14 @@ class PregnancyRecordViewSet(viewsets.ModelViewSet):
 
 # ── BreedingAlertViewSet ──────────────────────────────────────────────────────
 
+@extend_schema_view(
+    list=extend_schema(summary="List BreedingAlert", description="List BreedingAlert items"),
+    create=extend_schema(summary="Create BreedingAlert", description="Create a new BreedingAlert"),
+    retrieve=extend_schema(summary="Retrieve BreedingAlert", description="Get BreedingAlert details"),
+    update=extend_schema(summary="Update BreedingAlert", description="Full update BreedingAlert"),
+    partial_update=extend_schema(summary="Partial Update BreedingAlert", description="Partial update BreedingAlert"),
+    destroy=extend_schema(summary="Delete BreedingAlert", description="Delete BreedingAlert")
+)
 class BreedingAlertViewSet(viewsets.ReadOnlyModelViewSet):
     """
     ViewSet for BreedingAlert (read-only list/retrieve + mark-sent action).
@@ -399,6 +435,7 @@ class BreedingAlertViewSet(viewsets.ReadOnlyModelViewSet):
     ordering_fields   = ["scheduled_date", "alert_type"]
     ordering          = ["scheduled_date"]
 
+    @extend_schema(summary="Mark Sent", description="Mark Sent endpoint")
     @action(detail=True, methods=["post"], url_path="mark-sent")
     def mark_sent(self, request, pk=None):
         """
@@ -467,6 +504,8 @@ class CattleReproductiveTimelineView(APIView):
     """
 
     permission_classes = [IsOwnerOrReadOnly]
+
+    @extend_schema(summary="Get Details")
 
     def get(self, request, cattle_id: int):
         cattle = get_object_or_404(Cattle, pk=cattle_id)
@@ -547,6 +586,8 @@ class DueThisWeekView(APIView):
 
     permission_classes = [IsOwnerOrReadOnly]
 
+    @extend_schema(summary="Get Details")
+
     def get(self, request):
         today    = date.today()
         week_end = today + timedelta(days=6)
@@ -588,6 +629,8 @@ class PendingAlertsView(APIView):
     """
 
     permission_classes = [IsOwnerOrReadOnly]
+
+    @extend_schema(summary="Get Details")
 
     def get(self, request):
         qs = (
@@ -635,6 +678,8 @@ class PredictBreedingWindowView(APIView):
     """
 
     permission_classes = [IsOwnerOrReadOnly]
+
+    @extend_schema(summary="Get Details")
 
     def get(self, request, cattle_id: int):
         cattle = get_object_or_404(Cattle, pk=cattle_id)
@@ -687,6 +732,8 @@ class AISuccessProbabilityView(APIView):
     """
 
     permission_classes = [IsOwnerOrReadOnly]
+
+    @extend_schema(summary="Get Details")
 
     def get(self, request, cattle_id: int):
         cattle = get_object_or_404(Cattle, pk=cattle_id)

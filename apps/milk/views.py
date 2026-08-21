@@ -20,6 +20,8 @@ from django.db.models import Avg, Count, Sum
 from django.shortcuts import get_object_or_404
 
 from django_filters.rest_framework import DjangoFilterBackend
+from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiExample, OpenApiParameter, OpenApiResponse
+from drf_spectacular.types import OpenApiTypes
 from rest_framework import filters, status, viewsets
 from rest_framework.permissions import IsAuthenticated
 from apps.accounts.permissions import IsOwnerOrReadOnly, IsVetOrOwner
@@ -57,6 +59,14 @@ def _parse_positive_int(value: str | None, default: int, name: str, max_val: int
 
 # ── Main CRUD ViewSet ─────────────────────────────────────────────────────────
 
+@extend_schema_view(
+    list=extend_schema(summary="List MilkLog", description="List MilkLog items"),
+    create=extend_schema(summary="Create MilkLog", description="Create a new MilkLog"),
+    retrieve=extend_schema(summary="Retrieve MilkLog", description="Get MilkLog details"),
+    update=extend_schema(summary="Update MilkLog", description="Full update MilkLog"),
+    partial_update=extend_schema(summary="Partial Update MilkLog", description="Partial update MilkLog"),
+    destroy=extend_schema(summary="Delete MilkLog", description="Delete MilkLog")
+)
 class MilkLogViewSet(viewsets.ModelViewSet):
     """
     ViewSet for MilkLog CRUD operations.
@@ -157,6 +167,8 @@ class DailySummaryView(APIView):
 
     permission_classes = [IsOwnerOrReadOnly]
 
+    @extend_schema(summary="Get Details")
+
     def get(self, request):
         raw_date = request.query_params.get("date")
         if not raw_date:
@@ -253,6 +265,8 @@ class CattleTrendView(APIView):
 
     permission_classes = [IsOwnerOrReadOnly]
 
+    @extend_schema(summary="Get Details")
+
     def get(self, request, cattle_id: int):
         cattle = get_object_or_404(Cattle, pk=cattle_id)
 
@@ -348,6 +362,8 @@ class TopProducersView(APIView):
     """
 
     permission_classes = [IsOwnerOrReadOnly]
+
+    @extend_schema(summary="Get Details")
 
     def get(self, request):
         today = date.today()

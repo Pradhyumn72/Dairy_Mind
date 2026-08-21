@@ -37,9 +37,23 @@ from .serializers import (
     CattleSerializer,
 )
 
+from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiExample, OpenApiParameter, OpenApiResponse
+from drf_spectacular.types import OpenApiTypes
+
 logger = logging.getLogger(__name__)
 
-
+@extend_schema_view(
+    list=extend_schema(summary="List Cattle", description="Returns paginated, filterable list of cattle."),
+    create=extend_schema(
+        summary="Create Cattle", 
+        description="Create a new cattle record.",
+        examples=[OpenApiExample("Valid Request", value={"tag_number": "T123", "name": "Bessie", "breed": "Holstein", "date_of_birth": "2020-01-01", "gender": "Female", "is_active": True})]
+    ),
+    retrieve=extend_schema(summary="Retrieve Cattle", description="Return a single cattle record with full detail."),
+    update=extend_schema(summary="Update Cattle", description="Full update of a cattle record."),
+    partial_update=extend_schema(summary="Partial Update Cattle", description="Partial update of a cattle record."),
+    destroy=extend_schema(summary="Hard Delete Cattle", description="Hard delete (use /deactivate/ for soft-delete).")
+)
 class CattleViewSet(viewsets.ModelViewSet):
     """
     ViewSet for the Cattle model.
@@ -162,6 +176,11 @@ class CattleViewSet(viewsets.ModelViewSet):
 
     # ── Custom action: milk history ───────────────────────────────────────────
 
+    @extend_schema(
+        summary="Milk History",
+        description="Return the last 30 days of MilkLog entries for a single cattle.",
+        responses={200: OpenApiResponse(description="Milk History JSON")}
+    )
     @action(detail=True, methods=["get"], url_path="milk-history")
     def milk_history(self, request, pk=None):
         """
@@ -228,6 +247,12 @@ class CattleViewSet(viewsets.ModelViewSet):
 
     # ── Custom action: health timeline ────────────────────────────────────────
 
+    @extend_schema(
+        summary="Health Timeline",
+        description="Return a merged, chronologically sorted timeline of all HealthAlerts and HealthRecords.",
+        parameters=[OpenApiParameter(name="resolved", type=OpenApiTypes.BOOL, location=OpenApiParameter.QUERY, description="Filter by resolution status")],
+        responses={200: OpenApiResponse(description="Timeline JSON")}
+    )
     @action(detail=True, methods=["get"], url_path="health-timeline")
     def health_timeline(self, request, pk=None):
         """
@@ -308,6 +333,11 @@ class CattleViewSet(viewsets.ModelViewSet):
 
     # ── Custom action: dashboard stats ───────────────────────────────────────
 
+    @extend_schema(
+        summary="Cattle Dashboard Stats",
+        description="Return a combined stats summary card for a single cattle.",
+        responses={200: OpenApiResponse(description="Dashboard stats JSON")}
+    )
     @action(detail=True, methods=["get"], url_path="dashboard")
     def dashboard(self, request, pk=None):
         """
@@ -391,6 +421,12 @@ class CattleViewSet(viewsets.ModelViewSet):
 
     # ── Custom action: soft-delete ────────────────────────────────────────────
 
+    @extend_schema(
+        summary="Deactivate Cattle",
+        description="Soft-delete a cattle record by setting is_active = False.",
+        request=None,
+        responses={200: OpenApiResponse(description="Success msg"), 400: OpenApiResponse(description="Already inactive")}
+    )
     @action(detail=True, methods=["post"], url_path="deactivate")
     def deactivate(self, request, pk=None):
         """
@@ -437,6 +473,11 @@ class CattleViewSet(viewsets.ModelViewSet):
 
     # ── Custom action: audit history ─────────────────────────────────────────
 
+    @extend_schema(
+        summary="Audit History",
+        description="Return the full versioned audit log for a single cattle record.",
+        responses={200: AnimalHistorySerializer(many=True)}
+    )
     @action(detail=True, methods=["get"], url_path="history")
     def history(self, request, pk=None):
         """

@@ -19,6 +19,8 @@ import logging
 from datetime import date
 
 from django_filters.rest_framework import DjangoFilterBackend
+from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiExample, OpenApiParameter, OpenApiResponse
+from drf_spectacular.types import OpenApiTypes
 from rest_framework import filters, status
 from rest_framework.permissions import IsAuthenticated
 from apps.accounts.permissions import IsOwnerOrReadOnly, IsVetOrOwner
@@ -68,6 +70,8 @@ class FeedLogListCreateView(APIView):
 
     permission_classes = [IsOwnerOrReadOnly]
 
+    @extend_schema(summary="Get Details")
+
     def get(self, request):
         qs = FeedLog.objects.select_related("cattle").order_by("-date")
 
@@ -109,6 +113,8 @@ class FeedLogListCreateView(APIView):
             status=status.HTTP_200_OK,
         )
 
+    @extend_schema(summary="Submit Data")
+
     def post(self, request):
         serializer = FeedLogSerializer(data=request.data)
         if not serializer.is_valid():
@@ -143,6 +149,8 @@ class FeedLogDetailView(APIView):
 
     def _get_log(self, pk: int):
         return get_object_or_404(FeedLog.objects.select_related("cattle"), pk=pk)
+
+    @extend_schema(summary="Get Details")
 
     def get(self, request, pk: int):
         return Response(FeedLogSerializer(self._get_log(pk)).data)
@@ -213,6 +221,8 @@ class CattleMonthlySummaryView(APIView):
 
     permission_classes = [IsOwnerOrReadOnly]
 
+    @extend_schema(summary="Get Details")
+
     def get(self, request, cattle_id: int):
         today = date.today()
 
@@ -282,6 +292,8 @@ class FarmWideSummaryView(APIView):
 
     permission_classes = [IsOwnerOrReadOnly]
 
+    @extend_schema(summary="Get Details")
+
     def get(self, request):
         today = date.today()
 
@@ -312,6 +324,8 @@ class ROIView(APIView):
     """Deprecated — use CattleMonthlySummaryView or FarmWideSummaryView."""
     permission_classes = [IsOwnerOrReadOnly]
 
+    @extend_schema(summary="Get Details")
+
     def get(self, request):
         return Response(
             {"detail": "Use /api/costs/summary/{cattle_id}/ or /api/costs/summary/farm/ instead."},
@@ -322,6 +336,8 @@ class ROIView(APIView):
 class LowPerformersView(APIView):
     """Returns bottom-5 cattle from the farm-wide summary for the current month."""
     permission_classes = [IsOwnerOrReadOnly]
+
+    @extend_schema(summary="Get Details")
 
     def get(self, request):
         today = date.today()
@@ -348,6 +364,8 @@ class LowPerformersView(APIView):
 class FarmConfigView(APIView):
     """Return or update the active milk price per litre setting."""
     permission_classes = [IsOwnerOrReadOnly]
+
+    @extend_schema(summary="Get Details")
 
     def get(self, request):
         from django.conf import settings as _s

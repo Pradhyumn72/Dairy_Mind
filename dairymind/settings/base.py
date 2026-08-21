@@ -29,6 +29,7 @@ THIRD_PARTY_APPS = [
     "django_filters",
     "django_celery_beat",
     "django_celery_results",
+    "drf_spectacular",
 ]
 
 LOCAL_APPS = [
@@ -129,6 +130,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # ── Django REST Framework ─────────────────────────────────────────────────────
 REST_FRAMEWORK = {
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework.authentication.TokenAuthentication",
         "rest_framework.authentication.SessionAuthentication",
@@ -282,3 +284,10 @@ LOGGING = {
         },
     },
 }
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "DairyMind API",
+    "DESCRIPTION": "Smart Dairy Farm Management System API",
+    "VERSION": "1.0.0"
+}
+

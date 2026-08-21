@@ -9,6 +9,8 @@ RunAnomalyCheckView  POST /api/alerts/run-check/          Trigger ML anomaly sca
 import logging
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiExample, OpenApiParameter, OpenApiResponse
+from drf_spectacular.types import OpenApiTypes
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from apps.accounts.permissions import IsOwnerOrReadOnly, IsVetOrOwner
@@ -39,6 +41,8 @@ class AlertListView(APIView):
     }
     """
     permission_classes = [IsOwnerOrReadOnly]
+
+    @extend_schema(summary="Get Details")
 
     def get(self, request):
         qs = HealthAlert.objects.select_related("cattle", "resolved_by").order_by("-created_at")
@@ -93,6 +97,8 @@ class AlertDetailView(APIView):
     """GET /api/alerts/{id}/"""
     permission_classes = [IsOwnerOrReadOnly]
 
+    @extend_schema(summary="Get Details")
+
     def get(self, request, pk):
         alert = get_object_or_404(HealthAlert.objects.select_related("cattle"), pk=pk)
         return Response({
@@ -112,6 +118,8 @@ class AlertDetailView(APIView):
 class AlertAcknowledgeView(APIView):
     """POST /api/alerts/{id}/acknowledge/"""
     permission_classes = [IsOwnerOrReadOnly]
+
+    @extend_schema(summary="Submit Data")
 
     def post(self, request, pk):
         alert = get_object_or_404(HealthAlert, pk=pk)
@@ -151,6 +159,8 @@ class RunAnomalyCheckView(APIView):
     """
 
     permission_classes = [IsOwnerOrReadOnly]
+
+    @extend_schema(summary="Submit Data")
 
     def post(self, request):
         from .tasks import check_anomalies
