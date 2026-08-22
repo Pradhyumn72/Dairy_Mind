@@ -148,6 +148,20 @@
       .auth-body { padding: 22px 20px 26px; }
       .two-col { grid-template-columns: 1fr; gap: 0; }
     }
+
+    /* ── Field validation state ──────────────────────────────── */
+    .field-err {
+      font-size: .73rem; color: #e53e3e; margin-top: 4px;
+      min-height: 16px;
+    }
+    .auth-input-wrap.is-invalid {
+      border-color: #e53e3e;
+      box-shadow: 0 0 0 3px rgba(229,62,62,.10);
+    }
+    .auth-input-wrap.is-valid {
+      border-color: #2e8555;
+      box-shadow: 0 0 0 3px rgba(46,133,85,.10);
+    }
   </style>
 </head>
 <body>
@@ -235,21 +249,29 @@
         <div class="two-col">
           <div class="auth-field">
             <label for="su_first_name">First Name <span style="color:#e53e3e">*</span></label>
-            <div class="auth-input-wrap">
+            <div class="auth-input-wrap" id="wrap_first_name">
               <span class="icon"><i class="bi bi-person"></i></span>
               <input type="text" id="su_first_name" name="first_name"
                      placeholder="John" required
+                     pattern="^[A-Za-z\s]+$"
+                     title="First name must contain only letters"
+                     oninput="validateAlpha(this,'wrap_first_name','err_first_name','letters only')"
                      value="{{ prefill.first_name|default:'' }}">
             </div>
+            <div id="err_first_name" class="field-err"></div>
           </div>
           <div class="auth-field">
             <label for="su_last_name">Last Name</label>
-            <div class="auth-input-wrap">
+            <div class="auth-input-wrap" id="wrap_last_name">
               <span class="icon"><i class="bi bi-person"></i></span>
               <input type="text" id="su_last_name" name="last_name"
                      placeholder="Farmer"
+                     pattern="^[A-Za-z\s]*$"
+                     title="Last name must contain only letters"
+                     oninput="validateAlpha(this,'wrap_last_name','err_last_name','letters only')"
                      value="{{ prefill.last_name|default:'' }}">
             </div>
+            <div id="err_last_name" class="field-err"></div>
           </div>
         </div>
 
@@ -265,12 +287,16 @@
 
         <div class="auth-field">
           <label for="su_username">Username <span style="color:#e53e3e">*</span></label>
-          <div class="auth-input-wrap">
+          <div class="auth-input-wrap" id="wrap_username">
             <span class="icon"><i class="bi bi-at"></i></span>
             <input type="text" id="su_username" name="username"
-                   placeholder="your_username" required autocomplete="username"
+                   placeholder="john_farmer" required autocomplete="username"
+                   pattern="^[A-Za-z0-9_]{3,30}$"
+                   title="3–30 characters: letters, numbers, underscores only"
+                   oninput="validateUsername(this)"
                    value="{{ prefill.username|default:'' }}">
           </div>
+          <div id="err_username" class="field-err"></div>
         </div>
 
         <div class="auth-field">
@@ -328,18 +354,59 @@
     document.getElementById('tabSignUp').classList.toggle('active',  isSignup);
     document.getElementById('panelSignIn').classList.toggle('active', !isSignup);
     document.getElementById('panelSignUp').classList.toggle('active',  isSignup);
-    // Focus first relevant input
     const focusId = isSignup ? 'su_first_name' : 'si_username';
     setTimeout(() => document.getElementById(focusId)?.focus(), 60);
   }
 
-  /* ── Real-time password match indicator ───────────────────── */
+  /* ── Field helpers ────────────────────────────────────────── */
+  function setFieldState(wrapId, errId, msg) {
+    const wrap = document.getElementById(wrapId);
+    const err  = document.getElementById(errId);
+    if (!wrap) return;
+    if (msg) {
+      wrap.classList.add('is-invalid');
+      wrap.classList.remove('is-valid');
+      if (err) err.textContent = msg;
+    } else {
+      wrap.classList.remove('is-invalid');
+      wrap.classList.add('is-valid');
+      if (err) err.textContent = '';
+    }
+  }
+
+  /* Name fields — letters and spaces only */
+  function validateAlpha(input, wrapId, errId, label) {
+    const val = input.value.trim();
+    if (!val) { setFieldState(wrapId, errId, ''); return; }
+    if (!/^[A-Za-z\s]+$/.test(val)) {
+      setFieldState(wrapId, errId, label + ' — no numbers or special characters');
+    } else {
+      setFieldState(wrapId, errId, null);
+    }
+  }
+
+  /* Username — alphanumeric + underscore, 3–30 chars */
+  function validateUsername(input) {
+    const val = input.value.trim();
+    if (!val) { setFieldState('wrap_username','err_username',''); return; }
+    if (!/^[A-Za-z0-9_]{3,30}$/.test(val)) {
+      let msg = '';
+      if (val.length < 3)          msg = 'Minimum 3 characters required';
+      else if (val.length > 30)    msg = 'Maximum 30 characters allowed';
+      else                         msg = 'Only letters, numbers, and underscores ( _ ) allowed';
+      setFieldState('wrap_username','err_username', msg);
+    } else {
+      setFieldState('wrap_username','err_username', null);
+    }
+  }
+
+  /* Password match */
   function checkPasswordMatch() {
     const pw  = document.getElementById('su_password').value;
     const cfm = document.getElementById('su_confirm').value;
     const msg = document.getElementById('pwMatchMsg');
     const btn = document.getElementById('signupBtn');
-    if (!cfm) { msg.style.display = 'none'; return; }
+    if (!cfm) { msg.style.display = 'none'; btn.disabled = false; return; }
     if (pw === cfm) {
       msg.style.display = 'block';
       msg.style.color   = '#2e8555';
@@ -355,6 +422,23 @@
 
   document.getElementById('su_confirm').addEventListener('input', checkPasswordMatch);
   document.getElementById('su_password').addEventListener('input', checkPasswordMatch);
+
+  /* Block form submit if any inline errors exist */
+  document.querySelector('#panelSignUp form').addEventListener('submit', function(e) {
+    const invalids = this.querySelectorAll('.auth-input-wrap.is-invalid');
+    if (invalids.length > 0) {
+      e.preventDefault();
+      invalids[0].querySelector('input')?.focus();
+    }
+    /* Also block if passwords don't match */
+    const pw  = document.getElementById('su_password').value;
+    const cfm = document.getElementById('su_confirm').value;
+    if (pw !== cfm) {
+      e.preventDefault();
+      checkPasswordMatch();
+      document.getElementById('su_confirm').focus();
+    }
+  });
 </script>
 </body>
 </html>
