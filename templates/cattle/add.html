@@ -1,0 +1,275 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Add Cattle — DairyMind{% endblock %}
+{% block page_title %}Add Cattle{% endblock %}
+{% block nav_cattle %}active{% endblock %}
+
+{% block content %}
+<div class="dm-page-header">
+  <div>
+    <h2 class="dm-page-header__title">🐮 Add New Cattle</h2>
+    <p class="dm-page-header__subtitle">Register a new animal in your herd</p>
+  </div>
+  <a href="/cattle/" class="dm-btn dm-btn--outline">
+    <i class="bi bi-arrow-left me-1"></i> Back to Registry
+  </a>
+</div>
+
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+
+    <div class="dm-card">
+      <div class="dm-card__header">
+        <span class="dm-card__title">Cattle Information</span>
+      </div>
+      <div class="dm-card__body">
+
+        <div id="formError" class="dm-alert dm-alert--danger mb-4" style="display:none" role="alert">
+          <i class="bi bi-exclamation-triangle-fill"></i>
+          <div id="formErrorMsg"></div>
+        </div>
+        <div id="formSuccess" class="dm-alert dm-alert--success mb-4" style="display:none" role="status">
+          <i class="bi bi-check-circle-fill"></i>
+          <div>Cattle added successfully! <a href="/cattle/" class="fw-semibold">View Registry →</a></div>
+        </div>
+
+        <form id="addCattleForm" novalidate>
+          {% csrf_token %}
+
+          <div class="row g-3">
+
+            {# Tag Number #}
+            <div class="col-sm-6">
+              <label for="tag_number" class="form-label fw-semibold small">
+                Tag Number <span class="text-danger">*</span>
+              </label>
+              <input type="text" class="form-control" id="tag_number" name="tag_number"
+                     placeholder="e.g. TAG001" required maxlength="20"
+                     pattern="^[A-Za-z0-9\-_]+$"
+                     title="Alphanumeric, hyphens and underscores only">
+              <div class="invalid-feedback">Required. Use letters, numbers, - or _ only.</div>
+            </div>
+
+            {# Name #}
+            <div class="col-sm-6">
+              <label for="name" class="form-label fw-semibold small">
+                Name <span class="text-danger">*</span>
+              </label>
+              <input type="text" class="form-control" id="name" name="name"
+                     placeholder="e.g. Bessie" required maxlength="100">
+              <div class="invalid-feedback">Name is required.</div>
+            </div>
+
+            {# Breed #}
+            <div class="col-sm-6">
+              <label for="breed" class="form-label fw-semibold small">
+                Breed <span class="text-danger">*</span>
+              </label>
+              <input type="text" class="form-control" id="breed" name="breed"
+                     placeholder="e.g. Holstein" required maxlength="100"
+                     list="breedList">
+              <datalist id="breedList">
+                <option value="Holstein">
+                <option value="Jersey">
+                <option value="Brown Swiss">
+                <option value="Ayrshire">
+                <option value="Guernsey">
+                <option value="Gir">
+                <option value="Sahiwal">
+                <option value="Murrah Buffalo">
+                <option value="Mixed Breed">
+              </datalist>
+              <div class="invalid-feedback">Breed is required.</div>
+            </div>
+
+            {# Date of Birth #}
+            <div class="col-sm-6">
+              <label for="date_of_birth" class="form-label fw-semibold small">
+                Date of Birth <span class="text-danger">*</span>
+              </label>
+              <input type="date" class="form-control" id="date_of_birth" name="date_of_birth"
+                     required max="{{ today }}">
+              <div class="invalid-feedback">Date of birth is required and cannot be in the future.</div>
+            </div>
+
+            {# Gender #}
+            <div class="col-sm-6">
+              <label for="gender" class="form-label fw-semibold small">
+                Gender <span class="text-danger">*</span>
+              </label>
+              <select class="form-select" id="gender" name="gender" required>
+                <option value="" disabled selected>Select gender</option>
+                <option value="Female">Female</option>
+                <option value="Male">Male</option>
+              </select>
+              <div class="invalid-feedback">Please select a gender.</div>
+            </div>
+
+            {# Status #}
+            <div class="col-sm-6">
+              <label for="status" class="form-label fw-semibold small">Status</label>
+              <select class="form-select" id="status" name="status">
+                <option value="Active" selected>Active</option>
+                <option value="Dry">Dry</option>
+                <option value="Sold">Sold</option>
+                <option value="Deceased">Deceased</option>
+              </select>
+            </div>
+
+            {# Weight #}
+            <div class="col-sm-6">
+              <label for="weight_kg" class="form-label fw-semibold small">Weight (kg)</label>
+              <input type="number" class="form-control" id="weight_kg" name="weight_kg"
+                     placeholder="e.g. 450" min="0" max="2000" step="0.1">
+            </div>
+
+            {# Avg Daily Milk Yield #}
+            <div class="col-sm-6">
+              <label for="avg_daily_milk_litres" class="form-label fw-semibold small">
+                Avg Daily Milk Yield (L)
+                <span class="text-muted fw-normal" style="font-size:.75rem">— expected per day</span>
+              </label>
+              <input type="number" class="form-control" id="avg_daily_milk_litres" name="avg_daily_milk_litres"
+                     placeholder="e.g. 18.5" min="0" max="100" step="0.1">
+            </div>
+
+            {# Purchase Date #}
+            <div class="col-sm-6">
+              <label for="purchase_date" class="form-label fw-semibold small">Purchase Date</label>
+              <input type="date" class="form-control" id="purchase_date" name="purchase_date">
+            </div>
+
+            {# Notes #}
+            <div class="col-12">
+              <label for="notes" class="form-label fw-semibold small">Notes</label>
+              <textarea class="form-control" id="notes" name="notes" rows="3"
+                        placeholder="Any additional details about this cattle…"
+                        maxlength="1000"></textarea>
+              <div class="form-text text-end" id="notesCount">0 / 1000</div>
+            </div>
+
+          </div>{# /.row #}
+
+          <div class="d-flex gap-3 mt-4">
+            <button type="submit" class="dm-btn dm-btn--primary" id="submitBtn">
+              <i class="bi bi-plus-lg me-1"></i> Add Cattle
+            </button>
+            <a href="/cattle/" class="dm-btn dm-btn--outline">Cancel</a>
+          </div>
+
+        </form>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+(function () {
+  'use strict';
+
+  /* Set max date on DOB to today */
+  document.getElementById('date_of_birth').max = new Date().toISOString().split('T')[0];
+
+  /* Notes character counter */
+  const notes = document.getElementById('notes');
+  const notesCount = document.getElementById('notesCount');
+  notes.addEventListener('input', function () {
+    notesCount.textContent = this.value.length + ' / 1000';
+  });
+
+  /* CSRF helper */
+  function getCsrf() {
+    const m = document.cookie.match(/csrftoken=([^;]+)/);
+    return m ? m[1] : '';
+  }
+
+  /* Form submit → POST /api/cattle/ */
+  document.getElementById('addCattleForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+
+    const form   = e.target;
+    const errDiv = document.getElementById('formError');
+    const errMsg = document.getElementById('formErrorMsg');
+    const sucDiv = document.getElementById('formSuccess');
+    const btn    = document.getElementById('submitBtn');
+
+    errDiv.style.display = 'none';
+    sucDiv.style.display = 'none';
+
+    /* HTML5 validation */
+    if (!form.checkValidity()) {
+      form.classList.add('was-validated');
+      return;
+    }
+    form.classList.remove('was-validated');
+
+    /* Build payload */
+    const payload = {
+      tag_number:    form.tag_number.value.trim(),
+      name:          form.name.value.trim(),
+      breed:         form.breed.value.trim(),
+      date_of_birth: form.date_of_birth.value,
+      gender:        form.gender.value,
+      status:        form.status.value,
+      notes:         form.notes.value.trim(),
+    };
+    if (form.weight_kg.value)           payload.weight_kg              = parseFloat(form.weight_kg.value);
+    if (form.avg_daily_milk_litres.value) payload.avg_daily_milk_litres  = parseFloat(form.avg_daily_milk_litres.value);
+    if (form.purchase_date.value)       payload.purchase_date           = form.purchase_date.value;
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span>Saving…';
+
+    fetch('/api/cattle/', {
+      method:      'POST',
+      credentials: 'same-origin',
+      headers: {
+        'Content-Type':  'application/json',
+        'Accept':        'application/json',
+        'X-CSRFToken':   getCsrf(),
+      },
+      body: JSON.stringify(payload),
+    })
+    .then(function (res) {
+      return res.json().then(function (d) { return { ok: res.ok, data: d }; });
+    })
+    .then(function (res) {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-plus-lg me-1"></i> Add Cattle';
+
+      if (res.ok) {
+        form.reset();
+        form.classList.remove('was-validated');
+        notesCount.textContent = '0 / 1000';
+        sucDiv.style.display = '';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else {
+        /* Collect all field errors */
+        const msgs = [];
+        if (typeof res.data === 'object') {
+          Object.entries(res.data).forEach(function (entry) {
+            const field = entry[0];
+            const errs  = entry[1];
+            const label = field === 'non_field_errors' ? '' : (field + ': ');
+            msgs.push(label + (Array.isArray(errs) ? errs.join(', ') : errs));
+          });
+        }
+        errMsg.innerHTML = msgs.length ? msgs.join('<br>') : 'Failed to add cattle. Please try again.';
+        errDiv.style.display = '';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    })
+    .catch(function () {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-plus-lg me-1"></i> Add Cattle';
+      errMsg.textContent = 'Connection error. Please check your internet and try again.';
+      errDiv.style.display = '';
+    });
+  });
+
+})();
+</script>
+{% endblock %}

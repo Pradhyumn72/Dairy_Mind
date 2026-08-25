@@ -391,6 +391,9 @@ body {
 
 .dm-user-chip:hover { background: var(--dm-green-50); }
 
+/* Hide the Bootstrap default caret — we use bi-chevron-down instead */
+.dm-user-chip.dropdown-toggle::after { display: none; }
+
 .dm-user-chip__avatar {
   width:           30px;
   height:          30px;

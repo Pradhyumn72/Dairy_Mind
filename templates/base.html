@@ -148,6 +148,26 @@
         <span class="dm-nav__label">Settings</span>
       </a>
 
+      <a href="/profile/"
+         class="dm-nav__item {% block nav_profile %}{% endblock %}"
+         role="listitem"
+         id="navProfile"
+         aria-label="My Profile">
+        <span class="dm-nav__icon" aria-hidden="true">👤</span>
+        <span class="dm-nav__label">My Profile</span>
+      </a>
+
+      <a href="/logout/"
+         class="dm-nav__item"
+         role="listitem"
+         id="navLogout"
+         aria-label="Sign Out"
+         onclick="return confirm('Sign out of DairyMind?')"
+         style="color:var(--dm-red,#dc3545)">
+        <span class="dm-nav__icon" aria-hidden="true">🚪</span>
+        <span class="dm-nav__label">Sign Out</span>
+      </a>
+
     </div>{# /.dm-nav #}
 
     {# Footer #}
@@ -218,36 +238,58 @@
         {% if user.is_authenticated %}
         <div class="dropdown">
           <button
-            class="dm-user-chip"
+            class="dm-user-chip dropdown-toggle"
             id="dmUserMenu"
             type="button"
             data-bs-toggle="dropdown"
+            data-bs-auto-close="true"
             aria-expanded="false"
             aria-haspopup="true"
             aria-label="User menu">
             <div class="dm-user-chip__avatar" aria-hidden="true">
               {{ user.username|first|upper }}
             </div>
-            <span class="dm-user-chip__name">
+            <span class="dm-user-chip__name d-none d-sm-inline">
               {{ user.username }}
             </span>
-            <i class="bi bi-chevron-down ms-1" style="font-size:.7rem;color:var(--dm-gray-500)" aria-hidden="true"></i>
+            <i class="bi bi-chevron-down ms-1" style="font-size:.65rem;color:var(--dm-gray-500)" aria-hidden="true"></i>
           </button>
-          <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 mt-2" aria-labelledby="dmUserMenu">
+          <ul class="dropdown-menu dropdown-menu-end border-0 shadow mt-2 py-1"
+              aria-labelledby="dmUserMenu"
+              style="min-width:200px;border-radius:12px">
+            {# User info header #}
+            <li class="px-3 pt-2 pb-2" style="border-bottom:1px solid var(--dm-gray-100)">
+              <div style="font-size:.82rem;font-weight:700;color:var(--dm-gray-900)">{{ user.username }}</div>
+              {% if user.email %}
+              <div style="font-size:.75rem;color:var(--dm-gray-500)">{{ user.email }}</div>
+              {% endif %}
+              {% if user.profile.farm_name %}
+              <div style="font-size:.72rem;color:var(--dm-green-600);margin-top:2px">
+                <i class="bi bi-geo-alt-fill me-1"></i>{{ user.profile.farm_name }}
+              </div>
+              {% endif %}
+            </li>
             <li>
-              <a class="dropdown-item d-flex align-items-center gap-2 py-2" href="/profile/">
-                <i class="bi bi-person-circle text-dm-green" aria-hidden="true"></i> My Profile
+              <a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3" href="/profile/"
+                 style="font-size:.87rem">
+                <i class="bi bi-person-circle" style="color:var(--dm-green-600)" aria-hidden="true"></i>
+                My Profile
               </a>
             </li>
             <li>
-              <a class="dropdown-item d-flex align-items-center gap-2 py-2" href="/settings/">
-                <i class="bi bi-gear text-dm-green" aria-hidden="true"></i> Settings
+              <a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3" href="/settings/"
+                 style="font-size:.87rem">
+                <i class="bi bi-gear" style="color:var(--dm-green-600)" aria-hidden="true"></i>
+                Settings
               </a>
             </li>
-            <li><hr class="dropdown-divider my-1"></li>
+            <li><hr class="dropdown-divider my-1 mx-2"></li>
             <li>
-              <a class="dropdown-item d-flex align-items-center gap-2 py-2 text-danger" href="/logout/">
-                <i class="bi bi-box-arrow-right" aria-hidden="true"></i> Sign Out
+              <a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 mb-1" href="/logout/"
+                 style="font-size:.87rem;color:var(--dm-red)"
+                 onclick="return confirm('Sign out of DairyMind?')">
+                <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
+                Sign Out
               </a>
             </li>
           </ul>
@@ -370,8 +412,8 @@
   /* Initial fetch on load */
   fetchAlertCount();
 
-  /* Refresh every 60 seconds */
-  setInterval(fetchAlertCount, 60_000);
+  /* Refresh every 5 minutes — reduces server log noise */
+  setInterval(fetchAlertCount, 5 * 60 * 1000);
 
   /* ── Bootstrap tooltips — init all [data-bs-toggle="tooltip"] ────────── */
   var tooltipEls = document.querySelectorAll('[data-bs-toggle="tooltip"]');

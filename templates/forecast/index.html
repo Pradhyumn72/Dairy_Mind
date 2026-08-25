@@ -1,22 +1,365 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Production Forecast — DairyMind{% endblock %}
 {% block page_title %}Production Forecast{% endblock %}
 {% block nav_forecast %}active{% endblock %}
+
 {% block content %}
 <div class="dm-page-header">
   <div>
     <h2 class="dm-page-header__title">📈 Production Forecast</h2>
-    <p class="dm-page-header__subtitle">Manage your farm's Production Forecast data</p>
+    <p class="dm-page-header__subtitle">AI-powered milk production predictions</p>
+  </div>
+  <div class="ms-auto d-flex align-items-center gap-2 flex-wrap">
+    <!-- Cattle selector -->
+    <div style="min-width:220px">
+      <select id="cattleSelector" class="form-select form-select-sm" aria-label="Select cattle or herd view">
+        <option value="herd">🐄 Herd Total</option>
+      </select>
+    </div>
+    <button class="dm-btn dm-btn--outline" id="refreshBtn" type="button">
+      <i class="bi bi-arrow-clockwise me-1" aria-hidden="true"></i> Refresh Forecast
+    </button>
   </div>
 </div>
-<div class="dm-card">
+
+<!-- Loading state -->
+<div id="loadingState" class="dm-card">
   <div class="dm-card__body text-center py-5 text-muted">
-    <div style="font-size:3rem;margin-bottom:12px">📈</div>
-    <h4 class="fw-bold">Production Forecast</h4>
-    <p>This module is under active development.<br>The REST API at <code>/api/</code> is fully functional.</p>
-    <a href="/api/docs/" class="dm-btn dm-btn--outline dm-btn--sm mt-2" target="_blank">
-      <i class="bi bi-code-slash"></i> View API Docs
+    <div class="spinner-border text-success mb-3" role="status" aria-label="Loading forecast"></div>
+    <p class="mb-0" id="loadingMsg">Loading forecast…</p>
+  </div>
+</div>
+
+<!-- Zero-data empty state — only shown when days_of_data_available == 0 -->
+<div id="emptyState" class="dm-card" style="display:none">
+  <div class="dm-card__body text-center py-5">
+    <div style="font-size:4rem;margin-bottom:16px" aria-hidden="true">📈</div>
+    <h4 class="fw-bold mb-2">No forecast available yet</h4>
+    <p class="text-muted mb-4">Start logging milk production to generate your first forecast.</p>
+    <a href="/milk/" class="dm-btn dm-btn--primary">
+      <i class="bi bi-droplet me-1" aria-hidden="true"></i> Go to Milk Tracker
     </a>
   </div>
 </div>
+
+<!-- Confidence / tier banner — shown for Tiers 1-3 -->
+<div id="confidenceBanner" class="dm-card" style="display:none">
+  <div class="dm-card__body py-3 px-4 d-flex align-items-center gap-3 flex-wrap">
+    <span id="confidenceBadge" class="badge fs-6 px-3 py-2" aria-label="Forecast confidence"></span>
+    <span id="tierMessage" class="text-muted" style="font-size:.9rem"></span>
+    <span id="daysInfo" class="ms-auto text-muted" style="font-size:.82rem"></span>
+  </div>
+</div>
+
+<!-- Forecast chart -->
+<div id="forecastCard" class="dm-card" style="display:none">
+  <div class="dm-card__header d-flex align-items-center justify-content-between">
+    <span class="dm-card__title" id="chartTitle">Herd Production Forecast</span>
+  </div>
+  <div class="dm-card__body">
+    <canvas id="forecastChart" height="100" aria-label="Production forecast chart" role="img"></canvas>
+  </div>
+  <div class="dm-card__footer d-flex gap-4 flex-wrap" style="font-size:.82rem;color:var(--dm-gray-500)">
+    <span><span style="display:inline-block;width:14px;height:3px;background:#2e8555;vertical-align:middle;margin-right:4px"></span>Predicted</span>
+    <span><span style="display:inline-block;width:14px;height:3px;background:rgba(46,133,85,.35);border-top:2px dashed rgba(46,133,85,.5);vertical-align:middle;margin-right:4px"></span>Confidence Range</span>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+(function () {
+  'use strict';
+
+  // ── Confidence badge styling ───────────────────────────────────────────────
+  var CONFIDENCE_STYLES = {
+    VERY_LOW: { label: 'Very Low Confidence', cls: 'bg-danger'           },
+    LOW:      { label: 'Low Confidence',      cls: 'bg-warning text-dark'},
+    MEDIUM:   { label: 'Medium Confidence',   cls: 'bg-info text-dark'   },
+    HIGH:     { label: 'High Confidence',     cls: 'bg-success'          },
+  };
+
+  var chartInstance = null;
+
+  // ── CSRF helper ────────────────────────────────────────────────────────────
+  function getCsrfToken() {
+    var match = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+    return match ? decodeURIComponent(match[1]) : '';
+  }
+
+  // ── Error toast ────────────────────────────────────────────────────────────
+  function showErrorToast(msg) {
+    var existing = document.getElementById('forecastErrorToast');
+    if (existing) existing.remove();
+    var toast = document.createElement('div');
+    toast.id = 'forecastErrorToast';
+    toast.setAttribute('role', 'alert');
+    toast.setAttribute('aria-live', 'assertive');
+    toast.style.cssText = [
+      'position:fixed', 'bottom:24px', 'right:24px', 'z-index:9999',
+      'background:#dc3545', 'color:#fff', 'padding:12px 20px',
+      'border-radius:10px', 'font-size:.9rem', 'max-width:340px',
+      'box-shadow:0 4px 16px rgba(0,0,0,.18)', 'display:flex',
+      'align-items:center', 'gap:10px',
+    ].join(';');
+    toast.innerHTML =
+      '<i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i><span>' + msg + '</span>';
+    document.body.appendChild(toast);
+    setTimeout(function () { toast.remove(); }, 5000);
+  }
+
+  // ── UI helpers ─────────────────────────────────────────────────────────────
+  function showLoading(msg) {
+    document.getElementById('loadingMsg').textContent  = msg || 'Loading forecast…';
+    document.getElementById('loadingState').style.display    = '';
+    document.getElementById('emptyState').style.display      = 'none';
+    document.getElementById('confidenceBanner').style.display = 'none';
+    document.getElementById('forecastCard').style.display    = 'none';
+  }
+
+  function hideLoading() {
+    document.getElementById('loadingState').style.display = 'none';
+  }
+
+  // ── Chart builder ──────────────────────────────────────────────────────────
+  function buildChart(labels, predicted, lower, upper) {
+    if (chartInstance) chartInstance.destroy();
+    var ctx = document.getElementById('forecastChart').getContext('2d');
+    chartInstance = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: 'Upper Bound',
+            data: upper,
+            borderColor: 'rgba(46,133,85,.25)',
+            backgroundColor: 'rgba(46,133,85,.08)',
+            borderWidth: 1,
+            borderDash: [4, 4],
+            pointRadius: 0,
+            fill: '+1',
+            tension: 0.35,
+          },
+          {
+            label: 'Predicted',
+            data: predicted,
+            borderColor: '#2e8555',
+            backgroundColor: 'transparent',
+            borderWidth: 2.5,
+            pointBackgroundColor: '#2e8555',
+            pointRadius: 3,
+            tension: 0.35,
+            fill: false,
+          },
+          {
+            label: 'Lower Bound',
+            data: lower,
+            borderColor: 'rgba(46,133,85,.25)',
+            backgroundColor: 'rgba(46,133,85,.08)',
+            borderWidth: 1,
+            borderDash: [4, 4],
+            pointRadius: 0,
+            fill: '-1',
+            tension: 0.35,
+          },
+        ]
+      },
+      options: {
+        responsive: true,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: function (ctx) {
+                return ctx.dataset.label + ': ' + parseFloat(ctx.parsed.y).toFixed(1) + ' L';
+              }
+            }
+          }
+        },
+        scales: {
+          y: { beginAtZero: false, ticks: { callback: function (v) { return v + ' L'; } } }
+        }
+      }
+    });
+  }
+
+  // ── Confidence banner ──────────────────────────────────────────────────────
+  function renderConfidenceBanner(tier, confidence, message, daysAvailable) {
+    var banner = document.getElementById('confidenceBanner');
+    if (!confidence || confidence === 'HIGH') {
+      banner.style.display = 'none';
+      return;
+    }
+    var style  = CONFIDENCE_STYLES[confidence] || { label: confidence, cls: 'bg-secondary' };
+    var badge  = document.getElementById('confidenceBadge');
+    var msgEl  = document.getElementById('tierMessage');
+    var daysEl = document.getElementById('daysInfo');
+
+    badge.className = 'badge fs-6 px-3 py-2';
+    badge.classList.add(style.cls);
+    badge.textContent  = style.label;
+    msgEl.textContent  = message || '';
+    daysEl.textContent = daysAvailable + ' day' + (daysAvailable === 1 ? '' : 's') + ' of data available';
+    banner.style.display = '';
+  }
+
+  // ── Render chart data from an API response ─────────────────────────────────
+  function renderForecastData(data, chartTitleText) {
+    hideLoading();
+
+    if (!data) { document.getElementById('emptyState').style.display = ''; return; }
+
+    var labels    = data.labels      || [];
+    var predicted = data.predicted   || [];
+    var lower     = data.lower_bound || [];
+    var upper     = data.upper_bound || [];
+
+    if (labels.length === 0) { document.getElementById('emptyState').style.display = ''; return; }
+
+    // Confidence banner (present for per-cattle responses; absent for herd)
+    if (data.tier !== undefined && data.tier !== null) {
+      renderConfidenceBanner(data.tier, data.confidence, data.message,
+                             data.days_of_data_available || 0);
+    } else {
+      document.getElementById('confidenceBanner').style.display = 'none';
+    }
+
+    document.getElementById('chartTitle').textContent = chartTitleText || 'Production Forecast';
+    document.getElementById('forecastCard').style.display = '';
+    buildChart(labels, predicted, lower, upper);
+  }
+
+  // ── Load herd forecast ─────────────────────────────────────────────────────
+  function loadHerdChart() {
+    showLoading('Loading herd forecast…');
+    fetch('/api/forecast/herd/', {
+      credentials: 'same-origin',
+      headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+    })
+    .then(function (res) { return (res.status === 404) ? null : (res.ok ? res.json() : null); })
+    .then(function (data) { renderForecastData(data, 'Herd Production Forecast'); })
+    .catch(function () { hideLoading(); document.getElementById('emptyState').style.display = ''; });
+  }
+
+  // ── Load per-cattle forecast by tag number ─────────────────────────────────
+  function loadTagChart(tagNumber, cattleName) {
+    showLoading('Loading forecast for ' + tagNumber + '…');
+    fetch('/api/forecast/by-tag/' + encodeURIComponent(tagNumber) + '/', {
+      credentials: 'same-origin',
+      headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+    })
+    .then(function (res) {
+      if (res.status === 400) {
+        hideLoading();
+        document.getElementById('emptyState').style.display = '';
+        return null;
+      }
+      if (res.status === 404) {
+        hideLoading();
+        document.getElementById('emptyState').style.display = '';
+        return null;
+      }
+      return res.ok ? res.json() : null;
+    })
+    .then(function (data) {
+      if (!data) return;
+      var title = tagNumber + (cattleName ? ' — ' + cattleName : '') + ' Forecast';
+      renderForecastData(data, title);
+    })
+    .catch(function () { hideLoading(); document.getElementById('emptyState').style.display = ''; });
+  }
+
+  // ── Load whatever is currently selected ───────────────────────────────────
+  function loadSelected() {
+    var sel  = document.getElementById('cattleSelector');
+    var val  = sel.value;
+    var text = sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : '';
+    if (val === 'herd') {
+      loadHerdChart();
+    } else {
+      // val holds the tag_number; extract cattle name from option text "TAG - Name"
+      var namePart = text.replace(/^[^-]+-\s*/, '').trim();
+      loadTagChart(val, namePart);
+    }
+  }
+
+  // ── Refresh button — POST then reload current selection ───────────────────
+  function triggerRefresh() {
+    var btn = document.getElementById('refreshBtn');
+    var originalHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML =
+      '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Refreshing…';
+    showLoading('Generating forecasts…');
+
+    fetch('/api/forecast/refresh/', {
+      method:      'POST',
+      credentials: 'same-origin',
+      headers: {
+        'Accept':           'application/json',
+        'X-CSRFToken':      getCsrfToken(),
+        'X-Requested-With': 'XMLHttpRequest',
+        'Content-Type':     'application/json',
+      },
+    })
+    .then(function (res) {
+      if (!res.ok) {
+        return res.json().then(function (body) {
+          throw new Error(body.detail || ('Refresh failed (' + res.status + ')'));
+        });
+      }
+      return res.json();
+    })
+    .then(function () { loadSelected(); })
+    .catch(function (err) {
+      hideLoading();
+      document.getElementById('emptyState').style.display = '';
+      showErrorToast(err.message || 'Forecast refresh failed. Please try again.');
+    })
+    .finally(function () {
+      btn.disabled  = false;
+      btn.innerHTML = originalHtml;
+    });
+  }
+
+  // ── Populate cattle dropdown from /api/cattle/ ────────────────────────────
+  function populateCattleSelector() {
+    fetch('/api/cattle/?is_active=true&page_size=500', {
+      credentials: 'same-origin',
+      headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+    })
+    .then(function (res) { return res.ok ? res.json() : null; })
+    .then(function (data) {
+      if (!data) return;
+      var items = data.results || (Array.isArray(data) ? data : []);
+      if (items.length === 0) return;
+
+      var sel = document.getElementById('cattleSelector');
+      // Sort by tag_number
+      items.sort(function (a, b) {
+        return String(a.tag_number).localeCompare(String(b.tag_number), undefined, { numeric: true });
+      });
+      items.forEach(function (c) {
+        var opt    = document.createElement('option');
+        opt.value  = c.tag_number;                      // tag_number is the lookup key
+        opt.text   = c.tag_number + ' — ' + (c.name || '');
+        sel.appendChild(opt);
+      });
+    })
+    .catch(function () { /* dropdown stays with just "Herd Total" */ });
+  }
+
+  // ── Wire up ────────────────────────────────────────────────────────────────
+  document.getElementById('refreshBtn').addEventListener('click', triggerRefresh);
+  document.getElementById('cattleSelector').addEventListener('change', loadSelected);
+
+  // On page load: populate dropdown then load herd chart
+  populateCattleSelector();
+  loadHerdChart();
+
+})();
+</script>
 {% endblock %}

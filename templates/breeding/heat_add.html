@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Add Heat Cycle — DairyMind{% endblock %}
+{% block page_title %}Add Heat Cycle{% endblock %}
+{% block nav_breeding %}active{% endblock %}
+
+{% block content %}
+<div class="dm-page-header">
+  <div>
+    <h2 class="dm-page-header__title">🌡️ Record Heat Cycle</h2>
+    <p class="dm-page-header__subtitle" id="heatSubtitle">Log an observed estrus event</p>
+  </div>
+  <a href="/cattle/" class="dm-btn dm-btn--outline">
+    <i class="bi bi-arrow-left me-1"></i> Back to Registry
+  </a>
+</div>
+
+<div class="row justify-content-center">
+  <div class="col-lg-6">
+    <div class="dm-card">
+      <div class="dm-card__header"><span class="dm-card__title">Heat Cycle Entry</span></div>
+      <div class="dm-card__body">
+
+        <div id="formError"   class="dm-alert dm-alert--danger  mb-4" style="display:none"><i class="bi bi-exclamation-triangle-fill"></i><div id="formErrorMsg"></div></div>
+        <div id="formSuccess" class="dm-alert dm-alert--success mb-4" style="display:none"><i class="bi bi-check-circle-fill"></i><div>Heat cycle recorded! <a href="/breeding/" class="fw-semibold">View Breeding Manager →</a></div></div>
+
+        <form id="heatForm" novalidate>
+          {% csrf_token %}
+
+          <div class="mb-3">
+            <label for="cattle_id" class="form-label fw-semibold small">Cattle <span class="text-danger">*</span></label>
+            <select class="form-select" id="cattle_id" name="cattle_id" required>
+              <option value="" disabled selected>Loading cattle…</option>
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label for="observed_date" class="form-label fw-semibold small">Observed Date <span class="text-danger">*</span></label>
+            <input type="date" class="form-control" id="observed_date" name="observed_date" required>
+            <div class="invalid-feedback">Date is required.</div>
+          </div>
+
+          <div class="mb-3">
+            <label for="intensity" class="form-label fw-semibold small">Intensity <span class="text-danger">*</span></label>
+            <select class="form-select" id="intensity" name="intensity" required>
+              <option value="" disabled selected>Select intensity</option>
+              <option value="WEAK">Weak</option>
+              <option value="MODERATE">Moderate</option>
+              <option value="STRONG">Strong</option>
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label for="signs" class="form-label fw-semibold small">Signs / Notes</label>
+            <textarea class="form-control" id="signs" name="signs" rows="3"
+                      placeholder="Describe observed signs…" maxlength="500"></textarea>
+          </div>
+
+          <div class="d-flex gap-3">
+            <button type="submit" class="dm-btn dm-btn--primary" id="submitBtn">
+              <i class="bi bi-check-lg me-1"></i> Save Heat Cycle
+            </button>
+            <a href="/breeding/" class="dm-btn dm-btn--outline">Cancel</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+(function(){
+  'use strict';
+
+  /* Set today as default date */
+  const obs = document.getElementById('observed_date');
+  obs.value = new Date().toISOString().split('T')[0];
+  obs.max   = obs.value;
+
+  /* Pre-select cattle if cattle_id passed in query string */
+  const params   = new URLSearchParams(window.location.search);
+  const preselId = params.get('cattle_id');
+  const preselTag= params.get('tag');
+  if (preselTag) document.getElementById('heatSubtitle').textContent = 'Recording heat cycle for ' + preselTag;
+
+  fetch('/api/cattle/?gender=Female&page_size=200', {
+    credentials:'same-origin', headers:{'Accept':'application/json'}
+  })
+  .then(r => r.ok ? r.json() : null)
+  .then(data => {
+    const results = data ? (Array.isArray(data) ? data : (data.results||[])) : [];
+    const sel = document.getElementById('cattle_id');
+    if (results.length === 0) {
+      sel.innerHTML = '<option value="" disabled selected>No female cattle found</option>';
+    } else {
+      sel.innerHTML = '<option value="" disabled selected>Select cattle</option>' +
+        results.map(c => `<option value="${c.id}" ${preselId && String(c.id)===preselId?'selected':''}>${c.tag_number} — ${c.name}</option>`).join('');
+    }
+  });
+
+  function getCsrf(){ const m=document.cookie.match(/csrftoken=([^;]+)/); return m?m[1]:''; }
+
+  document.getElementById('heatForm').addEventListener('submit', function(e){
+    e.preventDefault();
+    const form=e.target;
+    const errDiv=document.getElementById('formError'), errMsg=document.getElementById('formErrorMsg');
+    const sucDiv=document.getElementById('formSuccess'), btn=document.getElementById('submitBtn');
+    errDiv.style.display='none'; sucDiv.style.display='none';
+    if(!form.checkValidity()){ form.classList.add('was-validated'); return; }
+
+    btn.disabled=true; btn.innerHTML='<span class="spinner-border spinner-border-sm me-1"></span>Saving…';
+
+    fetch('/api/breeding/heat-cycles/', {
+      method:'POST', credentials:'same-origin',
+      headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRFToken':getCsrf()},
+      body:JSON.stringify({
+        cattle_id:     parseInt(form.cattle_id.value),
+        observed_date: form.observed_date.value,
+        intensity:     form.intensity.value,
+        signs:         form.signs.value.trim(),
+      })
+    })
+    .then(r => r.json().then(d => ({ok:r.ok,data:d})))
+    .then(res => {
+      btn.disabled=false; btn.innerHTML='<i class="bi bi-check-lg me-1"></i> Save Heat Cycle';
+      if(res.ok){ form.reset(); obs.value=new Date().toISOString().split('T')[0]; sucDiv.style.display=''; window.scrollTo({top:0,behavior:'smooth'}); }
+      else { const msgs=[]; if(typeof res.data==='object') Object.entries(res.data).forEach(([k,v])=>msgs.push((k==='non_field_errors'?'':k+': ')+(Array.isArray(v)?v.join(', '):v))); errMsg.innerHTML=msgs.join('<br>')||'Failed. Please try again.'; errDiv.style.display=''; }
+    })
+    .catch(()=>{ btn.disabled=false; btn.innerHTML='<i class="bi bi-check-lg me-1"></i> Save Heat Cycle'; errMsg.textContent='Connection error.'; errDiv.style.display=''; });
+  });
+})();
+</script>
+{% endblock %}

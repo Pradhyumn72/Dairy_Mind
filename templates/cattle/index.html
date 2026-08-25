@@ -1,22 +1,189 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Cattle Registry — DairyMind{% endblock %}
 {% block page_title %}Cattle Registry{% endblock %}
 {% block nav_cattle %}active{% endblock %}
+
 {% block content %}
 <div class="dm-page-header">
   <div>
     <h2 class="dm-page-header__title">🐮 Cattle Registry</h2>
-    <p class="dm-page-header__subtitle">Manage your farm's Cattle Registry data</p>
+    <p class="dm-page-header__subtitle">View and manage all cattle on your farm</p>
   </div>
-</div>
-<div class="dm-card">
-  <div class="dm-card__body text-center py-5 text-muted">
-    <div style="font-size:3rem;margin-bottom:12px">🐮</div>
-    <h4 class="fw-bold">Cattle Registry</h4>
-    <p>This module is under active development.<br>The REST API at <code>/api/</code> is fully functional.</p>
-    <a href="/api/docs/" class="dm-btn dm-btn--outline dm-btn--sm mt-2" target="_blank">
-      <i class="bi bi-code-slash"></i> View API Docs
+  <div class="ms-auto">
+    <a href="/cattle/add/" class="dm-btn dm-btn--primary">
+      <i class="bi bi-plus-lg me-1" aria-hidden="true"></i> Add Cattle
     </a>
   </div>
 </div>
+
+<!-- Search bar -->
+<div class="dm-card mb-3" id="searchCard" style="display:none!important">
+  <div class="dm-card__body" style="padding:14px 22px;">
+    <div class="d-flex align-items-center gap-2">
+      <i class="bi bi-search text-muted" aria-hidden="true"></i>
+      <input
+        type="search"
+        id="cattleSearch"
+        class="form-control border-0 shadow-none"
+        placeholder="Search by name or tag number…"
+        aria-label="Search cattle"
+        style="font-size:.875rem;"
+      >
+    </div>
+  </div>
+</div>
+
+<!-- Loading state -->
+<div id="loadingState" class="dm-card">
+  <div class="dm-card__body text-center py-5 text-muted">
+    <div class="spinner-border text-success mb-3" role="status" aria-label="Loading cattle"></div>
+    <p class="mb-0">Loading cattle registry…</p>
+  </div>
+</div>
+
+<!-- Empty state -->
+<div id="emptyState" class="dm-card" style="display:none">
+  <div class="dm-card__body text-center py-5">
+    <div style="font-size:4rem;margin-bottom:16px" aria-hidden="true">🐮</div>
+    <h4 class="fw-bold mb-2">No cattle registered yet</h4>
+    <p class="text-muted mb-4">Start by adding your first cattle to the registry.</p>
+    <a href="/cattle/add/" class="dm-btn dm-btn--primary">
+      <i class="bi bi-plus-lg me-1" aria-hidden="true"></i> Add Your First Cattle
+    </a>
+  </div>
+</div>
+
+<!-- Cattle table -->
+<div id="cattleTableWrap" class="dm-card" style="display:none">
+  <div class="dm-card__body" style="padding:0">
+    <div class="dm-table-wrap">
+      <table class="dm-table" id="cattleTable" aria-label="Cattle registry">
+        <thead>
+          <tr>
+            <th scope="col">Tag Number</th>
+            <th scope="col">Name</th>
+            <th scope="col">Breed</th>
+            <th scope="col">Gender</th>
+            <th scope="col">Status</th>
+            <th scope="col">Age</th>
+            <th scope="col">Avg Milk (L/day)</th>
+            <th scope="col">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="cattleTbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+(function () {
+  'use strict';
+
+  const STATUS_COLORS = {
+    active:   'green',
+    dry:      'amber',
+    sold:     'gray',
+    deceased: 'red',
+  };
+
+  function statusBadge(status) {
+    const s = (status || '').toLowerCase();
+    const color = STATUS_COLORS[s] || 'gray';
+    return `<span class="dm-badge dm-badge--${color}">${status || '—'}</span>`;
+  }
+
+  function calcAge(dobStr) {
+    if (!dobStr) return '—';
+    const dob  = new Date(dobStr);
+    const now  = new Date();
+    const months = (now.getFullYear() - dob.getFullYear()) * 12 + (now.getMonth() - dob.getMonth());
+    if (months < 24) return months + ' mo';
+    return Math.floor(months / 12) + ' yr';
+  }
+
+  function renderRow(c) {
+    const avgMilk = c.avg_daily_milk_litres ? parseFloat(c.avg_daily_milk_litres).toFixed(1) + ' L' : '—';
+    return `<tr data-tag="${(c.tag_number||'').toLowerCase()}" data-name="${(c.name||'').toLowerCase()}">
+      <td><strong>${c.tag_number || '—'}</strong></td>
+      <td>${c.name || '—'}</td>
+      <td>${c.breed || '—'}</td>
+      <td>${c.gender || '—'}</td>
+      <td>${statusBadge(c.status || (c.is_active ? 'Active' : 'Inactive'))}</td>
+      <td>${calcAge(c.date_of_birth)}</td>
+      <td>${avgMilk}</td>
+      <td style="white-space:nowrap">
+        <a href="/cattle/${c.id}/" class="dm-btn dm-btn--outline dm-btn--sm me-1" title="View detail">
+          <i class="bi bi-eye"></i>
+        </a>
+        <a href="/cattle/${c.id}/edit/" class="dm-btn dm-btn--outline dm-btn--sm me-1" title="Edit cattle">
+          <i class="bi bi-pencil"></i>
+        </a>
+        <a href="/breeding/heat-cycles/add/?cattle_id=${c.id}&tag=${encodeURIComponent(c.tag_number)}" class="dm-btn dm-btn--sm" style="background:var(--dm-amber-light);color:#92580a;border:none" title="Add heat cycle">
+          <i class="bi bi-thermometer-half"></i> Heat Cycle
+        </a>
+      </td>
+    </tr>`;
+  }
+
+  let allRows = [];
+
+  function applySearch(query) {
+    const q = query.toLowerCase().trim();
+    const tbody = document.getElementById('cattleTbody');
+    let visibleCount = 0;
+    tbody.querySelectorAll('tr').forEach(function (tr) {
+      const tag  = tr.dataset.tag  || '';
+      const name = tr.dataset.name || '';
+      const show = !q || tag.includes(q) || name.includes(q);
+      tr.style.display = show ? '' : 'none';
+      if (show) visibleCount++;
+    });
+    return visibleCount;
+  }
+
+  function init() {
+    fetch('/api/cattle/', {
+      credentials: 'same-origin',
+      headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+    })
+    .then(function (res) {
+      if (!res.ok) throw new Error('Request failed: ' + res.status);
+      return res.json();
+    })
+    .then(function (data) {
+      const results = Array.isArray(data) ? data : (data.results || []);
+      document.getElementById('loadingState').style.display = 'none';
+
+      if (results.length === 0) {
+        document.getElementById('emptyState').style.display = '';
+        return;
+      }
+
+      // Populate table
+      const tbody = document.getElementById('cattleTbody');
+      tbody.innerHTML = results.map(renderRow).join('');
+      document.getElementById('cattleTableWrap').style.display = '';
+
+      // Show search bar
+      const searchCard = document.getElementById('searchCard');
+      searchCard.style.removeProperty('display');
+
+      // Wire search
+      document.getElementById('cattleSearch').addEventListener('input', function () {
+        applySearch(this.value);
+      });
+    })
+    .catch(function () {
+      document.getElementById('loadingState').style.display = 'none';
+      document.getElementById('emptyState').style.display = '';
+    });
+  }
+
+  init();
+})();
+</script>
 {% endblock %}

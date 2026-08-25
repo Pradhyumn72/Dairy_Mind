@@ -1,22 +1,203 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Cost Optimizer — DairyMind{% endblock %}
 {% block page_title %}Cost Optimizer{% endblock %}
 {% block nav_costs %}active{% endblock %}
+
 {% block content %}
 <div class="dm-page-header">
   <div>
     <h2 class="dm-page-header__title">💰 Cost Optimizer</h2>
-    <p class="dm-page-header__subtitle">Manage your farm's Cost Optimizer data</p>
+    <p class="dm-page-header__subtitle">Track feed costs and measure farm profitability</p>
   </div>
-</div>
-<div class="dm-card">
-  <div class="dm-card__body text-center py-5 text-muted">
-    <div style="font-size:3rem;margin-bottom:12px">💰</div>
-    <h4 class="fw-bold">Cost Optimizer</h4>
-    <p>This module is under active development.<br>The REST API at <code>/api/</code> is fully functional.</p>
-    <a href="/api/docs/" class="dm-btn dm-btn--outline dm-btn--sm mt-2" target="_blank">
-      <i class="bi bi-code-slash"></i> View API Docs
+  <div class="ms-auto">
+    <a href="/costs/feed/add/" class="dm-btn dm-btn--primary">
+      <i class="bi bi-plus-lg me-1" aria-hidden="true"></i> Log Feed Cost
     </a>
   </div>
 </div>
+
+<!-- Loading state -->
+<div id="loadingState" class="dm-card mb-4">
+  <div class="dm-card__body text-center py-5 text-muted">
+    <div class="spinner-border text-success mb-3" role="status" aria-label="Loading costs"></div>
+    <p class="mb-0">Loading cost data…</p>
+  </div>
+</div>
+
+<!-- Empty state -->
+<div id="emptyState" class="dm-card" style="display:none">
+  <div class="dm-card__body text-center py-5">
+    <div style="font-size:4rem;margin-bottom:16px" aria-hidden="true">💰</div>
+    <h4 class="fw-bold mb-2">No feed costs logged</h4>
+    <p class="text-muted mb-4">Start by adding cattle to your farm and logging feed costs to track profitability.</p>
+    <a href="/cattle/add/" class="dm-btn dm-btn--primary">
+      <i class="bi bi-plus-lg me-1" aria-hidden="true"></i> Add Your First Cattle
+    </a>
+  </div>
+</div>
+
+<!-- Summary + Table (hidden until loaded) -->
+<div id="costsContent" style="display:none">
+  <!-- Farm summary row -->
+  <div class="row g-3 mb-4" id="summaryRow">
+    <div class="col-sm-6 col-xl-3">
+      <div class="dm-stat-card">
+        <div class="dm-stat-card__icon dm-stat-card__icon--amber" aria-hidden="true">💸</div>
+        <div class="dm-stat-card__body">
+          <div class="dm-stat-card__label">Total Feed Cost</div>
+          <div class="dm-stat-card__value" id="statFeedCost">—</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+      <div class="dm-stat-card">
+        <div class="dm-stat-card__icon dm-stat-card__icon--blue" aria-hidden="true">🥛</div>
+        <div class="dm-stat-card__body">
+          <div class="dm-stat-card__label">Total Milk Produced</div>
+          <div class="dm-stat-card__value" id="statMilkLitres">—</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+      <div class="dm-stat-card">
+        <div class="dm-stat-card__icon dm-stat-card__icon--green" aria-hidden="true">💵</div>
+        <div class="dm-stat-card__body">
+          <div class="dm-stat-card__label">Total Revenue</div>
+          <div class="dm-stat-card__value" id="statRevenue">—</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+      <div class="dm-stat-card">
+        <div class="dm-stat-card__icon dm-stat-card__icon--green" aria-hidden="true">📊</div>
+        <div class="dm-stat-card__body">
+          <div class="dm-stat-card__label">Total Profit</div>
+          <div class="dm-stat-card__value" id="statProfit">—</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Feed log table -->
+  <div class="dm-card">
+    <div class="dm-card__header">
+      <span class="dm-card__title">Feed Cost Log</span>
+    </div>
+    <div class="dm-card__body" style="padding:0">
+      <div class="dm-table-wrap">
+        <table class="dm-table" id="feedTable" aria-label="Feed cost log">
+          <thead>
+            <tr>
+              <th scope="col">Date</th>
+              <th scope="col">Cattle</th>
+              <th scope="col">Feed Type</th>
+              <th scope="col">Qty (kg)</th>
+              <th scope="col">Cost/kg</th>
+              <th scope="col">Total Cost</th>
+            </tr>
+          </thead>
+          <tbody id="feedTbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+(function () {
+  'use strict';
+
+  function currency(v) {
+    const n = parseFloat(v);
+    if (isNaN(n)) return '—';
+    return '₹' + n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function fmtDate(d) {
+    if (!d) return '—';
+    return new Date(d).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  }
+
+  function renderRow(item) {
+    const qty      = parseFloat(item.quantity_kg   || item.quantity  || 0);
+    const costPerKg= parseFloat(item.cost_per_kg   || item.unit_cost || 0);
+    const total    = parseFloat(item.total_cost     || (qty * costPerKg));
+    const tag      = item.cattle_tag || item.cattle?.tag_number || '—';
+    return `<tr>
+      <td>${fmtDate(item.date)}</td>
+      <td>${tag}</td>
+      <td>${item.feed_type || item.feed_name || '—'}</td>
+      <td>${qty.toFixed(1)}</td>
+      <td>${costPerKg > 0 ? currency(costPerKg) : '—'}</td>
+      <td><strong>${currency(total)}</strong></td>
+    </tr>`;
+  }
+
+  function loadSummary() {
+    return fetch('/api/costs/summary/farm/', {
+      credentials: 'same-origin',
+      headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+    })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .catch(function () { return null; });
+  }
+
+  function loadFeedLog() {
+    return fetch('/api/costs/feed-log/', {
+      credentials: 'same-origin',
+      headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+    })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .catch(function () { return null; });
+  }
+
+  function init() {
+    Promise.all([loadSummary(), loadFeedLog()]).then(function (res) {
+      const summary = res[0];
+      const logData = res[1];
+
+      document.getElementById('loadingState').style.display = 'none';
+
+      const feedItems = logData ? (Array.isArray(logData) ? logData : (logData.results || [])) : [];
+
+      if (!summary && feedItems.length === 0) {
+        document.getElementById('emptyState').style.display = '';
+        return;
+      }
+
+      document.getElementById('costsContent').style.display = '';
+
+      // Populate summary stats
+      if (summary) {
+        const set = function (id, val) {
+          const el = document.getElementById(id);
+          if (el) el.textContent = val;
+        };
+        set('statFeedCost',   currency(summary.total_feed_cost));
+        set('statMilkLitres', (parseFloat(summary.total_milk_litres || 0)).toFixed(0) + ' L');
+        set('statRevenue',    currency(summary.farm_total_revenue));
+        const profit = parseFloat(summary.farm_total_profit || 0);
+        const profitEl = document.getElementById('statProfit');
+        if (profitEl) {
+          profitEl.textContent = currency(profit);
+          profitEl.style.color = profit >= 0 ? 'var(--dm-green-600)' : 'var(--dm-red)';
+        }
+      }
+
+      // Populate feed log table
+      if (feedItems.length > 0) {
+        document.getElementById('feedTbody').innerHTML = feedItems.map(renderRow).join('');
+      } else {
+        document.getElementById('feedTable').closest('.dm-card').innerHTML =
+          '<div class="dm-card__body text-center py-4 text-muted">No feed logs recorded yet.</div>';
+      }
+    });
+  }
+
+  init();
+})();
+</script>
 {% endblock %}

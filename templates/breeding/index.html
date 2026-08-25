@@ -1,22 +1,254 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Breeding Manager — DairyMind{% endblock %}
 {% block page_title %}Breeding Manager{% endblock %}
 {% block nav_breeding %}active{% endblock %}
+
 {% block content %}
 <div class="dm-page-header">
   <div>
     <h2 class="dm-page-header__title">🐄 Breeding Manager</h2>
-    <p class="dm-page-header__subtitle">Manage your farm's Breeding Manager data</p>
+    <p class="dm-page-header__subtitle">Track heat cycles, insemination events, and pregnancies</p>
   </div>
 </div>
-<div class="dm-card">
-  <div class="dm-card__body text-center py-5 text-muted">
-    <div style="font-size:3rem;margin-bottom:12px">🐄</div>
-    <h4 class="fw-bold">Breeding Manager</h4>
-    <p>This module is under active development.<br>The REST API at <code>/api/</code> is fully functional.</p>
-    <a href="/api/docs/" class="dm-btn dm-btn--outline dm-btn--sm mt-2" target="_blank">
-      <i class="bi bi-code-slash"></i> View API Docs
-    </a>
+
+<!-- Tabs -->
+<ul class="nav nav-tabs mb-4" id="breedingTabs" role="tablist">
+  <li class="nav-item" role="presentation">
+    <button class="nav-link active" id="tab-heat" data-bs-toggle="tab" data-bs-target="#panel-heat"
+            type="button" role="tab" aria-controls="panel-heat" aria-selected="true">
+      Heat Cycles
+    </button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" id="tab-ai" data-bs-toggle="tab" data-bs-target="#panel-ai"
+            type="button" role="tab" aria-controls="panel-ai" aria-selected="false">
+      AI Events
+    </button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" id="tab-preg" data-bs-toggle="tab" data-bs-target="#panel-preg"
+            type="button" role="tab" aria-controls="panel-preg" aria-selected="false">
+      Pregnancies
+    </button>
+  </li>
+</ul>
+
+<div class="tab-content">
+
+  <!-- Heat Cycles -->
+  <div class="tab-pane fade show active" id="panel-heat" role="tabpanel" aria-labelledby="tab-heat">
+    <div id="heat-loading" class="dm-card">
+      <div class="dm-card__body text-center py-4 text-muted">
+        <div class="spinner-border text-success mb-3" role="status" aria-label="Loading heat cycles"></div>
+        <p class="mb-0">Loading heat cycle records…</p>
+      </div>
+    </div>
+    <div id="heat-empty" class="dm-card" style="display:none">
+      <div class="dm-card__body text-center py-5">
+        <div style="font-size:3.5rem;margin-bottom:12px" aria-hidden="true">🌡️</div>
+        <h4 class="fw-bold mb-2">No heat cycle records yet</h4>
+        <p class="text-muted mb-4">Add cattle to your farm to begin tracking heat cycles.</p>
+        <a href="/cattle/add/" class="dm-btn dm-btn--primary">
+          <i class="bi bi-plus-lg me-1" aria-hidden="true"></i> Add Your First Cattle
+        </a>
+      </div>
+    </div>
+    <div id="heat-table" class="dm-card" style="display:none">
+      <div class="dm-card__body" style="padding:0">
+        <div class="dm-table-wrap">
+          <table class="dm-table" aria-label="Heat cycles">
+            <thead>
+              <tr>
+                <th scope="col">Cattle</th>
+                <th scope="col">Date</th>
+                <th scope="col">Intensity</th>
+                <th scope="col">Signs</th>
+              </tr>
+            </thead>
+            <tbody id="heat-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
   </div>
-</div>
+
+  <!-- AI Events -->
+  <div class="tab-pane fade" id="panel-ai" role="tabpanel" aria-labelledby="tab-ai">
+    <div id="ai-loading" class="dm-card">
+      <div class="dm-card__body text-center py-4 text-muted">
+        <div class="spinner-border text-success mb-3" role="status" aria-label="Loading AI events"></div>
+        <p class="mb-0">Loading insemination records…</p>
+      </div>
+    </div>
+    <div id="ai-empty" class="dm-card" style="display:none">
+      <div class="dm-card__body text-center py-5">
+        <div style="font-size:3.5rem;margin-bottom:12px" aria-hidden="true">🧬</div>
+        <h4 class="fw-bold mb-2">No insemination records yet</h4>
+        <p class="text-muted mb-4">Add cattle to your farm to begin logging AI events.</p>
+        <a href="/cattle/add/" class="dm-btn dm-btn--primary">
+          <i class="bi bi-plus-lg me-1" aria-hidden="true"></i> Add Your First Cattle
+        </a>
+      </div>
+    </div>
+    <div id="ai-table" class="dm-card" style="display:none">
+      <div class="dm-card__body" style="padding:0">
+        <div class="dm-table-wrap">
+          <table class="dm-table" aria-label="AI events">
+            <thead>
+              <tr>
+                <th scope="col">Cattle</th>
+                <th scope="col">Date</th>
+                <th scope="col">Bull</th>
+                <th scope="col">Technician</th>
+                <th scope="col">Outcome</th>
+              </tr>
+            </thead>
+            <tbody id="ai-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pregnancies -->
+  <div class="tab-pane fade" id="panel-preg" role="tabpanel" aria-labelledby="tab-preg">
+    <div id="preg-loading" class="dm-card">
+      <div class="dm-card__body text-center py-4 text-muted">
+        <div class="spinner-border text-success mb-3" role="status" aria-label="Loading pregnancies"></div>
+        <p class="mb-0">Loading pregnancy records…</p>
+      </div>
+    </div>
+    <div id="preg-empty" class="dm-card" style="display:none">
+      <div class="dm-card__body text-center py-5">
+        <div style="font-size:3.5rem;margin-bottom:12px" aria-hidden="true">🐄</div>
+        <h4 class="fw-bold mb-2">No pregnancy records yet</h4>
+        <p class="text-muted mb-4">Add cattle and log insemination events to track pregnancies.</p>
+        <a href="/cattle/add/" class="dm-btn dm-btn--primary">
+          <i class="bi bi-plus-lg me-1" aria-hidden="true"></i> Add Your First Cattle
+        </a>
+      </div>
+    </div>
+    <div id="preg-table" class="dm-card" style="display:none">
+      <div class="dm-card__body" style="padding:0">
+        <div class="dm-table-wrap">
+          <table class="dm-table" aria-label="Pregnancies">
+            <thead>
+              <tr>
+                <th scope="col">Cattle</th>
+                <th scope="col">Confirmed Date</th>
+                <th scope="col">Expected Calving</th>
+                <th scope="col">Status</th>
+              </tr>
+            </thead>
+            <tbody id="preg-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>{# /.tab-content #}
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+(function () {
+  'use strict';
+
+  function fmtDate(d) {
+    if (!d) return '—';
+    return new Date(d).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  }
+
+  function badge(text, color) {
+    return `<span class="dm-badge dm-badge--${color || 'gray'}">${text || '—'}</span>`;
+  }
+
+  const OUTCOME_COLOR = { success: 'green', pregnant: 'green', failed: 'red', unknown: 'gray', pending: 'amber' };
+  const PREG_STATUS_COLOR = { active: 'green', delivered: 'blue', lost: 'red', monitoring: 'amber' };
+
+  /* ── Section loader helper ────────────────────────────────────────── */
+  function loadSection(opts) {
+    fetch(opts.url, {
+      credentials: 'same-origin',
+      headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+    })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (data) {
+      document.getElementById(opts.loadingId).style.display = 'none';
+      const results = data ? (Array.isArray(data) ? data : (data.results || [])) : [];
+      if (results.length === 0) {
+        document.getElementById(opts.emptyId).style.display = '';
+        return;
+      }
+      document.getElementById(opts.tbodyId).innerHTML = results.map(opts.rowFn).join('');
+      document.getElementById(opts.tableId).style.display = '';
+    })
+    .catch(function () {
+      document.getElementById(opts.loadingId).style.display = 'none';
+      document.getElementById(opts.emptyId).style.display   = '';
+    });
+  }
+
+  /* ── Heat Cycles ──────────────────────────────────────────────────── */
+  loadSection({
+    url:       '/api/breeding/heat-cycles/',
+    loadingId: 'heat-loading',
+    emptyId:   'heat-empty',
+    tableId:   'heat-table',
+    tbodyId:   'heat-tbody',
+    rowFn: function (r) {
+      const tag = r.cattle_tag || r.cattle?.tag_number || '—';
+      const intensityColor = { high: 'red', medium: 'amber', low: 'green' }[(r.intensity || '').toLowerCase()] || 'gray';
+      return `<tr>
+        <td><strong>${tag}</strong></td>
+        <td>${fmtDate(r.date || r.observed_date)}</td>
+        <td>${badge(r.intensity, intensityColor)}</td>
+        <td>${r.signs || r.notes || '—'}</td>
+      </tr>`;
+    },
+  });
+
+  /* ── AI Events ────────────────────────────────────────────────────── */
+  loadSection({
+    url:       '/api/breeding/ai/',
+    loadingId: 'ai-loading',
+    emptyId:   'ai-empty',
+    tableId:   'ai-table',
+    tbodyId:   'ai-tbody',
+    rowFn: function (r) {
+      const tag     = r.cattle_tag || r.cattle?.tag_number || '—';
+      const outcome = (r.outcome || '').toLowerCase();
+      return `<tr>
+        <td><strong>${tag}</strong></td>
+        <td>${fmtDate(r.date || r.ai_date)}</td>
+        <td>${r.bull || r.bull_name || '—'}</td>
+        <td>${r.technician || r.technician_name || '—'}</td>
+        <td>${badge(r.outcome, OUTCOME_COLOR[outcome] || 'gray')}</td>
+      </tr>`;
+    },
+  });
+
+  /* ── Pregnancies ──────────────────────────────────────────────────── */
+  loadSection({
+    url:       '/api/breeding/pregnancy/',
+    loadingId: 'preg-loading',
+    emptyId:   'preg-empty',
+    tableId:   'preg-table',
+    tbodyId:   'preg-tbody',
+    rowFn: function (r) {
+      const tag    = r.cattle_tag || r.cattle?.tag_number || '—';
+      const status = (r.status || '').toLowerCase();
+      return `<tr>
+        <td><strong>${tag}</strong></td>
+        <td>${fmtDate(r.confirmed_date || r.date)}</td>
+        <td>${fmtDate(r.expected_calving_date || r.expected_calving)}</td>
+        <td>${badge(r.status, PREG_STATUS_COLOR[status] || 'gray')}</td>
+      </tr>`;
+    },
+  });
+
+})();
+</script>
 {% endblock %}

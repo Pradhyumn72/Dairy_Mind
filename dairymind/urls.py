@@ -1,10 +1,5 @@
 """
 Root URL configuration for DairyMind.
-
-HTML page routes (frontend)     → served by page_views.py → renders templates
-REST API routes (/api/...)       → served by DRF views
-Admin                            → /admin/
-API docs                         → /api/docs/ (Swagger), /api/redoc/
 """
 from django.contrib import admin
 from django.urls import path, include
@@ -20,15 +15,22 @@ from drf_spectacular.views import (
 from apps.accounts.page_views import (
     DashboardPageView,
     CattlePageView,
+    CattleAddPageView,
+    CattleEditPageView,
+    CattleDetailPageView,
     MilkPageView,
+    MilkLogPageView,
     HealthPageView,
     ForecastPageView,
     VetReportPageView,
+    VetReportUploadPageView,
     CostsPageView,
+    FeedLogAddPageView,
     BreedingPageView,
+    HeatCycleAddPageView,
     SettingsPageView,
 )
-from apps.accounts.views import login_view, logout_view, register_view
+from apps.accounts.views import login_view, logout_view, register_view, profile_view
 
 # ── REST API v1 ───────────────────────────────────────────────────────────────
 api_v1_patterns = [
@@ -51,29 +53,43 @@ urlpatterns = [
     # ── REST API ──────────────────────────────────────────────────────────────
     path("api/", include(api_v1_patterns)),
 
-    # ── API documentation (Swagger / ReDoc) ───────────────────────────────────
-    path("api/schema/", SpectacularAPIView.as_view(),                           name="schema"),
-    path("api/docs/",   SpectacularSwaggerView.as_view(url_name="schema"),      name="swagger-ui"),
-    path("api/redoc/",  SpectacularRedocView.as_view(url_name="schema"),        name="redoc"),
+    # ── API docs ──────────────────────────────────────────────────────────────
+    path("api/schema/", SpectacularAPIView.as_view(),                       name="schema"),
+    path("api/docs/",   SpectacularSwaggerView.as_view(url_name="schema"),  name="swagger-ui"),
+    path("api/redoc/",  SpectacularRedocView.as_view(url_name="schema"),    name="redoc"),
 
-    # ── Auth pages ────────────────────────────────────────────────────────────
+    # ── Auth ──────────────────────────────────────────────────────────────────
     path("login/",    login_view,    name="login"),
     path("logout/",   logout_view,   name="logout"),
     path("register/", register_view, name="register"),
+    path("profile/",  profile_view,  name="profile-page"),
 
-    # ── Frontend HTML pages ───────────────────────────────────────────────────
-    path("",           DashboardPageView.as_view(), name="dashboard"),  # root → dashboard
+    # ── Dashboard ─────────────────────────────────────────────────────────────
+    path("",           DashboardPageView.as_view(), name="dashboard"),
     path("dashboard/", DashboardPageView.as_view(), name="dashboard-alt"),
-    path("cattle/",    CattlePageView.as_view(),    name="cattle-page"),
-    path("milk/",      MilkPageView.as_view(),      name="milk-page"),
-    path("health/",    HealthPageView.as_view(),     name="health-page"),
-    path("forecast/",  ForecastPageView.as_view(),   name="forecast-page"),
-    path("vet-reports/", VetReportPageView.as_view(), name="vetreport-page"),
-    path("costs/",     CostsPageView.as_view(),      name="costs-page"),
-    path("breeding/",  BreedingPageView.as_view(),   name="breeding-page"),
-    path("settings/",  SettingsPageView.as_view(),   name="settings-page"),
+
+    # ── Cattle  (add/ and edit/ must come BEFORE <int:pk>/) ──────────────────
+    path("cattle/",                CattlePageView.as_view(),       name="cattle-page"),
+    path("cattle/add/",            CattleAddPageView.as_view(),    name="cattle-add"),
+    path("cattle/<int:pk>/",       CattleDetailPageView.as_view(), name="cattle-detail"),
+    path("cattle/<int:pk>/edit/",  CattleEditPageView.as_view(),   name="cattle-edit"),
+
+    # ── Milk ──────────────────────────────────────────────────────────────────
+    path("milk/",      MilkPageView.as_view(),    name="milk-page"),
+    path("milk/log/",  MilkLogPageView.as_view(), name="milk-log"),
+
+    # ── Other modules ─────────────────────────────────────────────────────────
+    path("health/",               HealthPageView.as_view(),         name="health-page"),
+    path("forecast/",             ForecastPageView.as_view(),       name="forecast-page"),
+    path("vet-reports/",          VetReportPageView.as_view(),      name="vetreport-page"),
+    path("vet-reports/upload/",   VetReportUploadPageView.as_view(),name="vetreport-upload-page"),
+    path("costs/",                CostsPageView.as_view(),          name="costs-page"),
+    path("costs/feed/add/",       FeedLogAddPageView.as_view(),     name="feed-add"),
+    path("breeding/",                  BreedingPageView.as_view(),     name="breeding-page"),
+    path("breeding/heat-cycles/add/",  HeatCycleAddPageView.as_view(), name="heat-cycle-add"),
+    path("settings/",             SettingsPageView.as_view(),       name="settings-page"),
+    path("profile/",              profile_view,                     name="profile-page"),
 ]
 
-# ── Serve media files in development ─────────────────────────────────────────
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

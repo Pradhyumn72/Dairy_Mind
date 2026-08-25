@@ -1,22 +1,103 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Settings — DairyMind{% endblock %}
 {% block page_title %}Settings{% endblock %}
 {% block nav_settings %}active{% endblock %}
+
 {% block content %}
 <div class="dm-page-header">
   <div>
     <h2 class="dm-page-header__title">⚙️ Settings</h2>
-    <p class="dm-page-header__subtitle">Manage your farm's Settings data</p>
+    <p class="dm-page-header__subtitle">Your account and farm configuration</p>
   </div>
 </div>
-<div class="dm-card">
-  <div class="dm-card__body text-center py-5 text-muted">
-    <div style="font-size:3rem;margin-bottom:12px">⚙️</div>
-    <h4 class="fw-bold">Settings</h4>
-    <p>This module is under active development.<br>The REST API at <code>/api/</code> is fully functional.</p>
-    <a href="/api/docs/" class="dm-btn dm-btn--outline dm-btn--sm mt-2" target="_blank">
-      <i class="bi bi-code-slash"></i> View API Docs
-    </a>
+
+<div class="row g-4">
+
+  <!-- Profile card -->
+  <div class="col-lg-6">
+    <div class="dm-card h-100">
+      <div class="dm-card__header">
+        <span class="dm-card__title"><i class="bi bi-person-circle me-2" aria-hidden="true"></i>Profile</span>
+      </div>
+      <div class="dm-card__body">
+        <dl class="row mb-0" style="font-size:.9rem">
+          <dt class="col-sm-4 text-muted fw-normal">Username</dt>
+          <dd class="col-sm-8 fw-semibold">
+            {% if user.is_authenticated %}{{ user.username }}{% else %}—{% endif %}
+          </dd>
+
+          <dt class="col-sm-4 text-muted fw-normal">Email</dt>
+          <dd class="col-sm-8">
+            {% if user.is_authenticated and user.email %}{{ user.email }}{% else %}<span class="text-muted">Not set</span>{% endif %}
+          </dd>
+
+          <dt class="col-sm-4 text-muted fw-normal">Farm Name</dt>
+          <dd class="col-sm-8">
+            {% if user.is_authenticated and user.profile.farm_name %}
+              {{ user.profile.farm_name }}
+            {% else %}
+              <span class="text-muted">Not configured</span>
+            {% endif %}
+          </dd>
+        </dl>
+      </div>
+    </div>
   </div>
+
+  <!-- Milk price config card -->
+  <div class="col-lg-6">
+    <div class="dm-card h-100">
+      <div class="dm-card__header">
+        <span class="dm-card__title"><i class="bi bi-currency-rupee me-2" aria-hidden="true"></i>Milk Price</span>
+      </div>
+      <div class="dm-card__body">
+        <p class="text-muted mb-3" style="font-size:.875rem">
+          Current milk selling price used for revenue and profit calculations.
+        </p>
+        <div id="milkPriceLoading" class="text-muted" style="font-size:.875rem">
+          <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+          Loading…
+        </div>
+        <div id="milkPriceDisplay" style="display:none">
+          <div class="d-flex align-items-baseline gap-2">
+            <span style="font-family:var(--font-display);font-size:2.2rem;font-weight:700;color:var(--dm-green-600)"
+                  id="milkPriceValue">—</span>
+            <span class="text-muted" style="font-size:.85rem">per litre</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+(function () {
+  'use strict';
+
+  fetch('/api/costs/config/', {
+    credentials: 'same-origin',
+    headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+  })
+  .then(function (r) { return r.ok ? r.json() : null; })
+  .then(function (data) {
+    document.getElementById('milkPriceLoading').style.display = 'none';
+    if (data && (data.MILK_PRICE_PER_LITRE !== undefined || data.milk_price_per_litre !== undefined)) {
+      const price = parseFloat(data.MILK_PRICE_PER_LITRE || data.milk_price_per_litre || 0);
+      document.getElementById('milkPriceValue').textContent =
+        '₹' + price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      document.getElementById('milkPriceDisplay').style.display = '';
+    } else {
+      document.getElementById('milkPriceLoading').textContent = 'Price not configured.';
+      document.getElementById('milkPriceLoading').style.display = '';
+    }
+  })
+  .catch(function () {
+    document.getElementById('milkPriceLoading').textContent = 'Unable to load milk price.';
+  });
+})();
+</script>
 {% endblock %}

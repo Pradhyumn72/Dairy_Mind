@@ -1,22 +1,182 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Milk Tracker — DairyMind{% endblock %}
 {% block page_title %}Milk Tracker{% endblock %}
 {% block nav_milk %}active{% endblock %}
+
 {% block content %}
 <div class="dm-page-header">
   <div>
     <h2 class="dm-page-header__title">🥛 Milk Tracker</h2>
-    <p class="dm-page-header__subtitle">Manage your farm's Milk Tracker data</p>
+    <p class="dm-page-header__subtitle">Track daily milk production across your herd</p>
   </div>
-</div>
-<div class="dm-card">
-  <div class="dm-card__body text-center py-5 text-muted">
-    <div style="font-size:3rem;margin-bottom:12px">🥛</div>
-    <h4 class="fw-bold">Milk Tracker</h4>
-    <p>This module is under active development.<br>The REST API at <code>/api/</code> is fully functional.</p>
-    <a href="/api/docs/" class="dm-btn dm-btn--outline dm-btn--sm mt-2" target="_blank">
-      <i class="bi bi-code-slash"></i> View API Docs
+  <div class="ms-auto">
+    <a href="/milk/log/" class="dm-btn dm-btn--primary">
+      <i class="bi bi-plus-lg me-1" aria-hidden="true"></i> Log Milk
     </a>
   </div>
 </div>
+
+<!-- Herd summary chart card -->
+<div class="dm-card mb-4" id="chartCard" style="display:none">
+  <div class="dm-card__header">
+    <span class="dm-card__title">Herd Production — Last 14 Days</span>
+  </div>
+  <div class="dm-card__body">
+    <canvas id="herdChart" height="90" aria-label="Herd milk production chart" role="img"></canvas>
+  </div>
+</div>
+
+<!-- Loading state -->
+<div id="loadingState" class="dm-card">
+  <div class="dm-card__body text-center py-5 text-muted">
+    <div class="spinner-border text-success mb-3" role="status" aria-label="Loading milk logs"></div>
+    <p class="mb-0">Loading milk records…</p>
+  </div>
+</div>
+
+<!-- Empty state -->
+<div id="emptyState" class="dm-card" style="display:none">
+  <div class="dm-card__body text-center py-5">
+    <div style="font-size:4rem;margin-bottom:16px" aria-hidden="true">🥛</div>
+    <h4 class="fw-bold mb-2">No milk logs yet</h4>
+    <p class="text-muted mb-4">Add cattle to your registry first, then start logging daily milk production.</p>
+    <a href="/cattle/add/" class="dm-btn dm-btn--primary">
+      <i class="bi bi-plus-lg me-1" aria-hidden="true"></i> Add Your First Cattle
+    </a>
+  </div>
+</div>
+
+<!-- Milk logs table -->
+<div id="logsTableWrap" class="dm-card" style="display:none">
+  <div class="dm-card__header">
+    <span class="dm-card__title">Recent Milk Logs</span>
+  </div>
+  <div class="dm-card__body" style="padding:0">
+    <div class="dm-table-wrap">
+      <table class="dm-table" id="logsTable" aria-label="Milk production logs">
+        <thead>
+          <tr>
+            <th scope="col">Tag Number</th>
+            <th scope="col">Cattle Name</th>
+            <th scope="col">Date</th>
+            <th scope="col">Morning (L)</th>
+            <th scope="col">Evening (L)</th>
+            <th scope="col">Total (L)</th>
+          </tr>
+        </thead>
+        <tbody id="logsTbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+(function () {
+  'use strict';
+
+  function fmtDate(d) {
+    if (!d) return '—';
+    return new Date(d).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  }
+
+  function renderRow(log) {
+    const morning  = parseFloat(log.morning_litres || log.morning || 0);
+    const evening  = parseFloat(log.evening_litres || log.evening || 0);
+    const total    = parseFloat(log.total_litres   || log.total   || (morning + evening));
+    const tag      = log.cattle_tag || (log.cattle && log.cattle.tag_number) || '—';
+    const cowName  = log.cattle_name || (log.cattle && log.cattle.name) || '—';
+    return `<tr>
+      <td><strong>${tag}</strong></td>
+      <td>${cowName}</td>
+      <td>${fmtDate(log.date)}</td>
+      <td>${morning.toFixed(1)}</td>
+      <td>${evening.toFixed(1)}</td>
+      <td><strong>${total.toFixed(1)}</strong></td>
+    </tr>`;
+  }
+
+  function buildChart(labels, values) {
+    const ctx = document.getElementById('herdChart').getContext('2d');
+    new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Total Litres',
+          data: values,
+          borderColor: '#2e8555',
+          backgroundColor: 'rgba(46,133,85,0.10)',
+          borderWidth: 2.5,
+          pointBackgroundColor: '#2e8555',
+          tension: 0.35,
+          fill: true,
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: function (ctx) { return ctx.parsed.y.toFixed(1) + ' L'; } } }
+        },
+        scales: {
+          y: { beginAtZero: true, ticks: { callback: function (v) { return v + ' L'; } } }
+        }
+      }
+    });
+  }
+
+  function fetchHerdSummary() {
+    const end   = new Date();
+    const start = new Date(); start.setDate(end.getDate() - 13);
+    const fmt   = function (d) { return d.toISOString().slice(0, 10); };
+    return fetch('/api/milk/herd-summary/?start_date=' + fmt(start) + '&end_date=' + fmt(end), {
+      credentials: 'same-origin',
+      headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+    })
+    .then(function (res) { return res.ok ? res.json() : null; })
+    .catch(function () { return null; });
+  }
+
+  function init() {
+    Promise.all([
+      fetch('/api/milk/logs/?page_size=20', {
+        credentials: 'same-origin',
+        headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+      }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
+      fetchHerdSummary(),
+    ]).then(function (responses) {
+      const logsData    = responses[0];
+      const summaryData = responses[1];
+
+      document.getElementById('loadingState').style.display = 'none';
+
+      // Draw chart if summary data present
+      if (summaryData) {
+        const rows   = Array.isArray(summaryData) ? summaryData : (summaryData.results || summaryData.data || []);
+        if (rows.length > 0) {
+          const labels = rows.map(function (r) { return r.date || r.label || ''; });
+          const values = rows.map(function (r) { return parseFloat(r.total_litres || r.total || 0); });
+          document.getElementById('chartCard').style.display = '';
+          buildChart(labels, values);
+        }
+      }
+
+      // Render table
+      const results = logsData ? (Array.isArray(logsData) ? logsData : (logsData.results || [])) : [];
+      if (results.length === 0) {
+        document.getElementById('emptyState').style.display = '';
+        return;
+      }
+
+      document.getElementById('logsTbody').innerHTML = results.map(renderRow).join('');
+      document.getElementById('logsTableWrap').style.display = '';
+    });
+  }
+
+  init();
+})();
+</script>
 {% endblock %}

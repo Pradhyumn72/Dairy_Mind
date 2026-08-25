@@ -9,109 +9,138 @@ from django.utils.decorators import method_decorator
 from django.views import View
 
 
-class HomeRedirectView(View):
-    """Redirect / to /dashboard/ or /login/ depending on auth state."""
-    def get(self, request):
-        if request.user.is_authenticated:
-            return redirect('dashboard')
-        return redirect('login')
+# ── Decorator shortcut ────────────────────────────────────────────────────────
+_login = login_required(login_url='/login/')
 
 
-@method_decorator(login_required(login_url='/login/'), name='dispatch')
+@method_decorator(_login, name='dispatch')
 class DashboardPageView(View):
-    """GET / and GET /dashboard/ — main dashboard page."""
     def get(self, request):
-        return render(request, 'dashboard.html', {
-            'page_title': 'Dashboard',
-            'nav_dashboard': 'active',
-        })
+        return render(request, 'dashboard.html', {'page_title': 'Dashboard'})
 
 
-@method_decorator(login_required(login_url='/login/'), name='dispatch')
+@method_decorator(_login, name='dispatch')
 class CattlePageView(View):
     def get(self, request):
-        return render(request, 'cattle/index.html', {
-            'page_title': 'Cattle Registry',
+        return render(request, 'cattle/index.html', {'page_title': 'Cattle Registry'})
+
+
+@method_decorator(_login, name='dispatch')
+class CattleAddPageView(View):
+    """GET /cattle/add/ — render the add cattle form."""
+    def get(self, request):
+        return render(request, 'cattle/add.html', {
+            'page_title': 'Add Cattle',
             'nav_cattle': 'active',
         })
 
 
-@method_decorator(login_required(login_url='/login/'), name='dispatch')
+@method_decorator(_login, name='dispatch')
+class CattleEditPageView(View):
+    """GET /cattle/<pk>/edit/ — render the edit cattle form."""
+    def get(self, request, pk):
+        return render(request, 'cattle/edit.html', {
+            'page_title': 'Edit Cattle',
+            'nav_cattle': 'active',
+            'cattle_id': pk,
+        })
+
+
+@method_decorator(_login, name='dispatch')
+class CattleDetailPageView(View):
+    """GET /cattle/<pk>/ — cattle detail page."""
+    def get(self, request, pk):
+        return render(request, 'cattle/detail.html', {
+            'page_title': 'Cattle Detail',
+            'nav_cattle': 'active',
+            'cattle_id': pk,
+        })
+
+
+@method_decorator(_login, name='dispatch')
 class MilkPageView(View):
     def get(self, request):
-        return render(request, 'milk/index.html', {
-            'page_title': 'Milk Tracker',
+        return render(request, 'milk/index.html', {'page_title': 'Milk Tracker'})
+
+
+@method_decorator(_login, name='dispatch')
+class MilkLogPageView(View):
+    """GET /milk/log/ — log milk production form."""
+    def get(self, request):
+        return render(request, 'milk/log.html', {
+            'page_title': 'Log Milk Production',
             'nav_milk': 'active',
         })
 
 
-@method_decorator(login_required(login_url='/login/'), name='dispatch')
+@method_decorator(_login, name='dispatch')
 class HealthPageView(View):
     def get(self, request):
-        return render(request, 'health/index.html', {
-            'page_title': 'Health Alerts',
-            'nav_health': 'active',
-        })
+        return render(request, 'health/index.html', {'page_title': 'Health Alerts'})
 
 
-@method_decorator(login_required(login_url='/login/'), name='dispatch')
+@method_decorator(_login, name='dispatch')
 class ForecastPageView(View):
     def get(self, request):
-        return render(request, 'forecast/index.html', {
-            'page_title': 'Production Forecast',
-            'nav_forecast': 'active',
-        })
+        return render(request, 'forecast/index.html', {'page_title': 'Production Forecast'})
 
 
-@method_decorator(login_required(login_url='/login/'), name='dispatch')
+@method_decorator(_login, name='dispatch')
 class VetReportPageView(View):
     def get(self, request):
-        return render(request, 'vetreport/index.html', {
-            'page_title': 'Vet Reports',
+        return render(request, 'vetreport/index.html', {'page_title': 'Vet Reports'})
+
+
+@method_decorator(_login, name='dispatch')
+class VetReportUploadPageView(View):
+    """GET /vet-reports/upload/ — upload a vet report."""
+    def get(self, request):
+        return render(request, 'vetreport/upload.html', {
+            'page_title': 'Upload Vet Report',
             'nav_vetreports': 'active',
         })
 
 
-@method_decorator(login_required(login_url='/login/'), name='dispatch')
+@method_decorator(_login, name='dispatch')
 class CostsPageView(View):
     def get(self, request):
-        return render(request, 'costs/index.html', {
-            'page_title': 'Cost Optimizer',
+        return render(request, 'costs/index.html', {'page_title': 'Cost Optimizer'})
+
+
+@method_decorator(_login, name='dispatch')
+class FeedLogAddPageView(View):
+    """GET /costs/feed/add/ — log feed cost form."""
+    def get(self, request):
+        return render(request, 'costs/feed_add.html', {
+            'page_title': 'Log Feed Cost',
             'nav_costs': 'active',
         })
 
 
-@method_decorator(login_required(login_url='/login/'), name='dispatch')
+@method_decorator(_login, name='dispatch')
 class BreedingPageView(View):
     def get(self, request):
-        return render(request, 'breeding/index.html', {
-            'page_title': 'Breeding Manager',
+        return render(request, 'breeding/index.html', {'page_title': 'Breeding Manager'})
+
+
+@method_decorator(_login, name='dispatch')
+class HeatCycleAddPageView(View):
+    """GET /breeding/heat-cycles/add/ — quick-add heat cycle, optionally pre-selected cattle."""
+    def get(self, request):
+        return render(request, 'breeding/heat_add.html', {
+            'page_title': 'Add Heat Cycle',
             'nav_breeding': 'active',
         })
 
 
-@method_decorator(login_required(login_url='/login/'), name='dispatch')
+@method_decorator(_login, name='dispatch')
 class SettingsPageView(View):
     def get(self, request):
-        return render(request, 'settings/index.html', {
-            'page_title': 'Settings',
-            'nav_settings': 'active',
-        })
+        return render(request, 'settings/index.html', {'page_title': 'Settings'})
 
 
-class LoginPageView(View):
-    """GET /login/ — login form page."""
-    def get(self, request):
-        if request.user.is_authenticated:
-            return redirect('dashboard')
-        return render(request, 'accounts/login.html', {
-            'page_title': 'Sign In',
-        })
-
-
-@method_decorator(login_required(login_url='/login/'), name='dispatch')
+@method_decorator(_login, name='dispatch')
 class LogoutPageView(View):
-    """GET /logout/ — logs out and redirects."""
     def get(self, request):
         from django.contrib.auth import logout
         logout(request)

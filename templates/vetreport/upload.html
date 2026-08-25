@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Upload Vet Report — DairyMind{% endblock %}
+{% block page_title %}Upload Vet Report{% endblock %}
+{% block nav_vetreports %}active{% endblock %}
+
+{% block content %}
+<div class="dm-page-header">
+  <div>
+    <h2 class="dm-page-header__title">📋 Upload Vet Report</h2>
+    <p class="dm-page-header__subtitle">Upload a PDF or text report and get an AI-powered plain English summary</p>
+  </div>
+  <a href="/vet-reports/" class="dm-btn dm-btn--outline">
+    <i class="bi bi-arrow-left me-1"></i> Back
+  </a>
+</div>
+
+<div class="row justify-content-center">
+  <div class="col-lg-7">
+    <div class="dm-card">
+      <div class="dm-card__header"><span class="dm-card__title">Report Upload</span></div>
+      <div class="dm-card__body">
+
+        <div id="formError"   class="dm-alert dm-alert--danger  mb-4" style="display:none"><i class="bi bi-exclamation-triangle-fill"></i><div id="formErrorMsg"></div></div>
+        <div id="formSuccess" class="dm-alert dm-alert--success mb-4" style="display:none"><i class="bi bi-check-circle-fill"></i><div>Report uploaded! AI summarisation is in progress. <a href="/vet-reports/" class="fw-semibold">View reports →</a></div></div>
+
+        <form id="uploadForm" enctype="multipart/form-data" novalidate>
+          {% csrf_token %}
+
+          <div class="mb-3">
+            <label for="cattle_id" class="form-label fw-semibold small">Cattle <span class="text-danger">*</span></label>
+            <select class="form-select" id="cattle_id" name="cattle_id" required>
+              <option value="" disabled selected>Loading cattle…</option>
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label for="file" class="form-label fw-semibold small">Report File <span class="text-danger">*</span> <span class="text-muted fw-normal">(PDF or .txt, max 10 MB)</span></label>
+            <input type="file" class="form-control" id="file" name="file" required accept=".pdf,.txt,application/pdf,text/plain">
+            <div class="invalid-feedback">Please select a PDF or TXT file.</div>
+          </div>
+
+          <div class="d-flex gap-3 mt-4">
+            <button type="submit" class="dm-btn dm-btn--primary" id="submitBtn">
+              <i class="bi bi-upload me-1"></i> Upload Report
+            </button>
+            <a href="/vet-reports/" class="dm-btn dm-btn--outline">Cancel</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+(function(){
+  'use strict';
+
+  fetch('/api/cattle/?page_size=200', { credentials:'same-origin', headers:{'Accept':'application/json'} })
+  .then(r => r.ok ? r.json() : null)
+  .then(data => {
+    const results = data ? (Array.isArray(data) ? data : (data.results||[])) : [];
+    const sel = document.getElementById('cattle_id');
+    sel.innerHTML = results.length
+      ? '<option value="" disabled selected>Select cattle</option>' + results.map(c=>`<option value="${c.id}">${c.tag_number} — ${c.name}</option>`).join('')
+      : '<option value="" disabled selected>No cattle found</option>';
+  });
+
+  function getCsrf(){ const m=document.cookie.match(/csrftoken=([^;]+)/); return m?m[1]:''; }
+
+  document.getElementById('uploadForm').addEventListener('submit', function(e){
+    e.preventDefault();
+    const form=e.target, errDiv=document.getElementById('formError'), errMsg=document.getElementById('formErrorMsg'), sucDiv=document.getElementById('formSuccess'), btn=document.getElementById('submitBtn');
+    errDiv.style.display='none'; sucDiv.style.display='none';
+    if(!form.checkValidity()){form.classList.add('was-validated');return;}
+    btn.disabled=true; btn.innerHTML='<span class="spinner-border spinner-border-sm me-1"></span>Uploading…';
+    const fd=new FormData(form);
+    fetch('/api/vet-reports/upload/',{method:'POST',credentials:'same-origin',headers:{'X-CSRFToken':getCsrf(),'Accept':'application/json'},body:fd})
+    .then(r=>r.json().then(d=>({ok:r.ok,data:d})))
+    .then(res=>{
+      btn.disabled=false; btn.innerHTML='<i class="bi bi-upload me-1"></i> Upload Report';
+      if(res.ok){form.reset();sucDiv.style.display='';window.scrollTo({top:0,behavior:'smooth'});}
+      else{errMsg.textContent=res.data.detail||'Upload failed. Please try again.';errDiv.style.display='';}
+    })
+    .catch(()=>{btn.disabled=false;btn.innerHTML='<i class="bi bi-upload me-1"></i> Upload Report';errMsg.textContent='Connection error.';errDiv.style.display='';});
+  });
+})();
+</script>
+{% endblock %}

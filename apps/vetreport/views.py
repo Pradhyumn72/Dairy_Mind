@@ -1,16 +1,20 @@
 """
 Vet Report API views.
 
-VetReportUploadView    POST /api/vet-reports/upload/
+VetReportUploadView      POST /api/vet-reports/upload/
     Accepts multipart/form-data with ``cattle_id`` + ``file`` (PDF or TXT).
     Validates file type and size, persists the VetReport record, enqueues
     the summarisation Celery task, and returns 202 immediately.
 
-VetReportDetailView    GET  /api/vet-reports/{id}/
+VetReportDetailView      GET  /api/vet-reports/{id}/
     Returns the current status and (when ready) the AI summary.
 
-VetReportListView      GET  /api/vet-reports/?cattle_id=<int>
+VetReportListView        GET  /api/vet-reports/?cattle_id=<int>
     Returns a paginated list of VetReports, optionally filtered by cattle.
+
+VetReportByCattleView    GET  /api/vet-reports/by-cattle/{cattle_id}/
+    Returns all VetReport records for a specific cattle with tag_number,
+    upload_date, and ai_summary — used by the Vet Insights dashboard section.
 """
 import logging
 import os
@@ -285,5 +289,81 @@ class VetReportListView(APIView):
 
         return Response(
             {"count": len(results), "results": results},
+            status=status.HTTP_200_OK,
+        )
+
+
+# ── By-cattle view ────────────────────────────────────────────────────────────
+
+class VetReportByCattleView(APIView):
+    """
+    Return all VetReport records for a specific cattle, ordered newest-first.
+    Used by the Vet Insights section on the Cattle detail page.
+
+    GET /api/vet-reports/by-cattle/{cattle_id}/
+
+    Path param
+    ----------
+    cattle_id : int — Cattle PK
+
+    Response 200
+    ------------
+    {
+        "cattle_id"  : int,
+        "tag_number" : str,
+        "count"      : int,
+        "reports"    : [
+            {
+                "id"               : int,
+                "original_filename": str,
+                "status"           : str,
+                "upload_date"      : "ISO-8601",
+                "processed_at"     : "ISO-8601" | null,
+                "ai_summary"       : str | null
+            },
+            ...
+        ]
+    }
+
+    Response 404 — cattle not found
+    """
+
+    permission_classes = [IsVetOrOwner]
+
+    @extend_schema(summary="Get Details")
+    def get(self, request, cattle_id: int):
+        cattle = get_object_or_404(Cattle, pk=cattle_id)
+
+        reports = (
+            VetReport.objects
+            .filter(cattle=cattle)
+            .order_by("-upload_date")
+            .values(
+                "id",
+                "original_filename",
+                "status",
+                "upload_date",
+                "processed_at",
+                "ai_summary",
+            )
+        )
+
+        return Response(
+            {
+                "cattle_id":  cattle.pk,
+                "tag_number": cattle.tag_number,
+                "count":      reports.count(),
+                "reports": [
+                    {
+                        "id":                r["id"],
+                        "original_filename": r["original_filename"],
+                        "status":            r["status"],
+                        "upload_date":       r["upload_date"].isoformat(),
+                        "processed_at":      r["processed_at"].isoformat() if r["processed_at"] else None,
+                        "ai_summary":        r["ai_summary"],
+                    }
+                    for r in reports
+                ],
+            },
             status=status.HTTP_200_OK,
         )

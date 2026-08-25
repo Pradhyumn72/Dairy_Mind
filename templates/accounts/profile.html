@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}My Profile — DairyMind{% endblock %}
+{% block page_title %}My Profile{% endblock %}
+
+{% block content %}
+<div class="dm-page-header">
+  <div>
+    <h2 class="dm-page-header__title">👤 My Profile</h2>
+    <p class="dm-page-header__subtitle">View and update your account details</p>
+  </div>
+  <a href="/logout/" class="dm-btn dm-btn--sm"
+     style="background:var(--dm-red-light);color:var(--dm-red);border:none"
+     onclick="return confirm('Sign out of DairyMind?')">
+    <i class="bi bi-box-arrow-right me-1"></i> Sign Out
+  </a>
+</div>
+
+{% if messages %}
+  {% for message in messages %}
+  <div class="dm-alert dm-alert--{% if 'error' in message.tags %}danger{% else %}success{% endif %} mb-4" role="alert">
+    <i class="bi bi-{% if 'error' in message.tags %}exclamation-triangle-fill{% else %}check-circle-fill{% endif %}"></i>
+    <div>{{ message }}</div>
+  </div>
+  {% endfor %}
+{% endif %}
+
+<div class="row g-4">
+
+  {# ── Avatar + quick info ───────────────────────────────────────────────── #}
+  <div class="col-lg-4">
+    <div class="dm-card text-center">
+      <div class="dm-card__body py-4">
+        <div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,var(--dm-green-500),var(--dm-green-400));display:flex;align-items:center;justify-content:center;font-size:2.2rem;font-weight:800;color:#fff;margin:0 auto 16px">
+          {{ user.username|first|upper }}
+        </div>
+        <div style="font-size:1.15rem;font-weight:700">{{ user.username }}</div>
+        <div class="text-muted" style="font-size:.85rem;margin-top:4px">
+          {% if user.profile.role %}{{ user.profile.role }}{% else %}Farm User{% endif %}
+        </div>
+        {% if user.profile.farm_name %}
+        <div class="mt-2" style="font-size:.82rem;color:var(--dm-green-600)">
+          <i class="bi bi-geo-alt-fill me-1"></i>{{ user.profile.farm_name }}
+        </div>
+        {% endif %}
+        <hr class="my-3">
+        <div class="text-muted" style="font-size:.8rem">
+          Member since {{ user.date_joined|date:"N Y" }}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# ── Edit form ─────────────────────────────────────────────────────────── #}
+  <div class="col-lg-8">
+    <div class="dm-card">
+      <div class="dm-card__header">
+        <span class="dm-card__title"><i class="bi bi-pencil-square me-2"></i>Edit Details</span>
+      </div>
+      <div class="dm-card__body">
+        <form method="post" action="{% url 'profile-page' %}" novalidate>
+          {% csrf_token %}
+
+          <div class="row g-3">
+
+            {# Name row #}
+            <div class="col-sm-6">
+              <label for="first_name" class="form-label fw-semibold small">First Name</label>
+              <input type="text" class="form-control" id="first_name" name="first_name"
+                     value="{{ user.first_name }}"
+                     placeholder="John"
+                     pattern="^[A-Za-z\s]*$"
+                     title="Letters only">
+            </div>
+            <div class="col-sm-6">
+              <label for="last_name" class="form-label fw-semibold small">Last Name</label>
+              <input type="text" class="form-control" id="last_name" name="last_name"
+                     value="{{ user.last_name }}"
+                     placeholder="Farmer"
+                     pattern="^[A-Za-z\s]*$"
+                     title="Letters only">
+            </div>
+
+            {# Email #}
+            <div class="col-12">
+              <label for="email" class="form-label fw-semibold small">Email Address</label>
+              <input type="email" class="form-control" id="email" name="email"
+                     value="{{ user.email }}"
+                     placeholder="john@farm.com">
+            </div>
+
+            {# Farm info #}
+            <div class="col-sm-6">
+              <label for="farm_name" class="form-label fw-semibold small">Farm Name</label>
+              <input type="text" class="form-control" id="farm_name" name="farm_name"
+                     value="{{ user.profile.farm_name }}"
+                     placeholder="e.g. Green Meadows Farm">
+            </div>
+            <div class="col-sm-6">
+              <label for="phone" class="form-label fw-semibold small">Phone Number</label>
+              <input type="tel" class="form-control" id="phone" name="phone"
+                     value="{{ user.profile.phone }}"
+                     placeholder="+91 98765 43210">
+            </div>
+
+            {# Password change section #}
+            <div class="col-12 mt-2">
+              <hr>
+              <p class="fw-semibold small mb-3" style="color:var(--dm-gray-700)">
+                <i class="bi bi-shield-lock me-1"></i>Change Password
+                <span class="fw-normal text-muted">(leave blank to keep current password)</span>
+              </p>
+            </div>
+            <div class="col-sm-6">
+              <label for="new_password" class="form-label fw-semibold small">New Password</label>
+              <input type="password" class="form-control" id="new_password" name="new_password"
+                     placeholder="Minimum 8 characters" minlength="8"
+                     autocomplete="new-password">
+            </div>
+            <div class="col-sm-6">
+              <label for="confirm_password" class="form-label fw-semibold small">Confirm New Password</label>
+              <input type="password" class="form-control" id="confirm_password" name="confirm_password"
+                     placeholder="Re-enter new password"
+                     autocomplete="new-password">
+              <div id="pwMatchMsg" style="font-size:.75rem;margin-top:4px;min-height:16px"></div>
+            </div>
+
+          </div>{# /.row #}
+
+          <div class="d-flex gap-3 mt-4">
+            <button type="submit" class="dm-btn dm-btn--primary">
+              <i class="bi bi-check-lg me-1"></i> Save Changes
+            </button>
+            <a href="/" class="dm-btn dm-btn--outline">Cancel</a>
+          </div>
+
+        </form>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+(function(){
+  'use strict';
+  const pw  = document.getElementById('new_password');
+  const cfm = document.getElementById('confirm_password');
+  const msg = document.getElementById('pwMatchMsg');
+
+  function check(){
+    if(!cfm.value){ msg.textContent=''; return; }
+    if(pw.value === cfm.value){
+      msg.style.color='var(--dm-green-600)';
+      msg.textContent='✓ Passwords match';
+    } else {
+      msg.style.color='var(--dm-red)';
+      msg.textContent='✗ Passwords do not match';
+    }
+  }
+  pw.addEventListener('input', check);
+  cfm.addEventListener('input', check);
+})();
+</script>
+{% endblock %}

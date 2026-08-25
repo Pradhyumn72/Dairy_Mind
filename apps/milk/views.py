@@ -9,6 +9,7 @@ Sets ``recorded_by`` automatically from the authenticated user on create.
 Standalone views (registered separately in urls.py)
 ----------------------------------------------------
 DailySummaryView    GET /api/milk/daily-summary/?date=YYYY-MM-DD
+HerdSummaryView     GET /api/milk/herd-summary/?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD
 CattleTrendView     GET /api/milk/cattle/{id}/trend/?days=30
 TopProducersView    GET /api/milk/top-producers/?month=MM&year=YYYY
 """
@@ -205,6 +206,166 @@ class DailySummaryView(APIView):
                 "total_litres": round(total, 2),
                 "cattle_count": count,
                 "avg_per_cattle": avg,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class HerdSummaryView(APIView):
+    """
+    Return total farm milk production summed across a date range, plus a
+    per-day breakdown suitable for Chart.js consumption.
+
+    GET /api/milk/herd-summary/?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD
+
+    Query params
+    ------------
+    start_date : YYYY-MM-DD (required) — inclusive range start
+    end_date   : YYYY-MM-DD (required) — inclusive range end
+
+    Constraints
+    -----------
+    * end_date must not be in the future
+    * start_date must be ≤ end_date
+    * Range must not exceed 366 days
+
+    Response 200
+    ------------
+    {
+        "start_date"     : "YYYY-MM-DD",
+        "end_date"       : "YYYY-MM-DD",
+        "range_days"     : int,
+        "total_litres"   : float,      // sum across the entire range
+        "avg_daily"      : float,      // total / days that have at least one log
+        "logged_days"    : int,        // number of distinct dates with ≥1 log
+        "cattle_count"   : int,        // distinct cattle logged over the range
+        "chart": {
+            "labels"     : ["YYYY-MM-DD", ...],  // one entry per logged date
+            "data"        : [float, ...]          // herd total for each date
+        },
+        "daily_breakdown": [
+            {
+                "date"         : "YYYY-MM-DD",
+                "total_litres" : float,
+                "cattle_count" : int
+            },
+            ...
+        ]
+    }
+
+    Response 400
+    ------------
+    { "detail": "<error message>" }
+    """
+
+    permission_classes = [IsOwnerOrReadOnly]
+
+    @extend_schema(summary="Get Details")
+    def get(self, request):
+        raw_start = request.query_params.get("start_date")
+        raw_end   = request.query_params.get("end_date")
+
+        # ── Presence check ────────────────────────────────────────────────────
+        if not raw_start or not raw_end:
+            return Response(
+                {"detail": "Both 'start_date' and 'end_date' are required (YYYY-MM-DD)."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # ── Parse ─────────────────────────────────────────────────────────────
+        try:
+            start_date = date.fromisoformat(raw_start)
+        except ValueError:
+            return Response(
+                {"detail": f"Invalid start_date '{raw_start}'. Use YYYY-MM-DD."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            end_date = date.fromisoformat(raw_end)
+        except ValueError:
+            return Response(
+                {"detail": f"Invalid end_date '{raw_end}'. Use YYYY-MM-DD."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # ── Validation ────────────────────────────────────────────────────────
+        today = date.today()
+
+        if end_date > today:
+            return Response(
+                {"detail": "end_date cannot be in the future."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if start_date > end_date:
+            return Response(
+                {"detail": "start_date must be on or before end_date."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        range_days = (end_date - start_date).days + 1
+        if range_days > 366:
+            return Response(
+                {"detail": "Date range must not exceed 366 days."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # ── Per-day aggregation ───────────────────────────────────────────────
+        daily_rows = (
+            MilkLog.objects
+            .filter(date__range=(start_date, end_date))
+            .values("date")
+            .annotate(
+                day_total=Sum("total_litres"),
+                day_count=Count("id"),
+            )
+            .order_by("date")
+        )
+
+        daily_breakdown = []
+        chart_labels    = []
+        chart_data      = []
+        grand_total     = 0.0
+        cattle_ids: set = set()
+
+        # Collect distinct cattle separately (one query, cheap)
+        cattle_ids_qs = (
+            MilkLog.objects
+            .filter(date__range=(start_date, end_date))
+            .values_list("cattle_id", flat=True)
+            .distinct()
+        )
+        cattle_count = cattle_ids_qs.count()
+
+        for row in daily_rows:
+            day_total = round(float(row["day_total"]), 2)
+            grand_total += day_total
+            date_str = str(row["date"])
+
+            chart_labels.append(date_str)
+            chart_data.append(day_total)
+            daily_breakdown.append({
+                "date":          date_str,
+                "total_litres":  day_total,
+                "cattle_count":  row["day_count"],
+            })
+
+        logged_days = len(daily_breakdown)
+        grand_total = round(grand_total, 2)
+        avg_daily   = round(grand_total / logged_days, 2) if logged_days > 0 else 0.0
+
+        return Response(
+            {
+                "start_date":      str(start_date),
+                "end_date":        str(end_date),
+                "range_days":      range_days,
+                "total_litres":    grand_total,
+                "avg_daily":       avg_daily,
+                "logged_days":     logged_days,
+                "cattle_count":    cattle_count,
+                "chart": {
+                    "labels": chart_labels,
+                    "data":   chart_data,
+                },
+                "daily_breakdown": daily_breakdown,
             },
             status=status.HTTP_200_OK,
         )

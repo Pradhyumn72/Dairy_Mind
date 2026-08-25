@@ -53,6 +53,12 @@ class MilkLogSerializer(serializers.ModelSerializer):
         help_text="Tag number of the cattle (read-only).",
     )
 
+    cattle_name = serializers.CharField(
+        source="cattle.name",
+        read_only=True,
+        help_text="Name of the cattle (read-only).",
+    )
+
     # Write: accept cattle PK; PrimaryKeyRelatedField handles FK validation.
     cattle_id = serializers.PrimaryKeyRelatedField(
         queryset=Cattle.objects.filter(is_active=True),
@@ -67,6 +73,7 @@ class MilkLogSerializer(serializers.ModelSerializer):
             "id",
             "cattle_id",       # write
             "cattle_tag",      # read
+            "cattle_name",     # read
             "date",
             "morning_litres",
             "evening_litres",

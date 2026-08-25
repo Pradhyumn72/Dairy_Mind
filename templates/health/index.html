@@ -1,22 +1,202 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Health Alerts — DairyMind{% endblock %}
 {% block page_title %}Health Alerts{% endblock %}
 {% block nav_health %}active{% endblock %}
+
 {% block content %}
 <div class="dm-page-header">
   <div>
     <h2 class="dm-page-header__title">🚨 Health Alerts</h2>
-    <p class="dm-page-header__subtitle">Manage your farm's Health Alerts data</p>
+    <p class="dm-page-header__subtitle">Monitor and acknowledge health anomalies in your herd</p>
   </div>
 </div>
-<div class="dm-card">
+
+<!-- Filter buttons -->
+<div class="mb-3 d-flex flex-wrap gap-2" id="filterBar" role="group" aria-label="Filter alerts">
+  <button class="dm-btn dm-btn--primary dm-btn--sm filter-btn active" data-filter="all">All</button>
+  <button class="dm-btn dm-btn--outline dm-btn--sm filter-btn" data-filter="unresolved">Unresolved</button>
+  <button class="dm-btn dm-btn--outline dm-btn--sm filter-btn" data-filter="HIGH">
+    <span class="dm-badge dm-badge--red me-1">HIGH</span>
+  </button>
+  <button class="dm-btn dm-btn--outline dm-btn--sm filter-btn" data-filter="MEDIUM">
+    <span class="dm-badge dm-badge--amber me-1">MEDIUM</span>
+  </button>
+  <button class="dm-btn dm-btn--outline dm-btn--sm filter-btn" data-filter="LOW">
+    <span class="dm-badge dm-badge--green me-1">LOW</span>
+  </button>
+</div>
+
+<!-- Loading state -->
+<div id="loadingState" class="dm-card">
   <div class="dm-card__body text-center py-5 text-muted">
-    <div style="font-size:3rem;margin-bottom:12px">🚨</div>
-    <h4 class="fw-bold">Health Alerts</h4>
-    <p>This module is under active development.<br>The REST API at <code>/api/</code> is fully functional.</p>
-    <a href="/api/docs/" class="dm-btn dm-btn--outline dm-btn--sm mt-2" target="_blank">
-      <i class="bi bi-code-slash"></i> View API Docs
-    </a>
+    <div class="spinner-border text-success mb-3" role="status" aria-label="Loading alerts"></div>
+    <p class="mb-0">Loading health alerts…</p>
   </div>
 </div>
+
+<!-- Empty state -->
+<div id="emptyState" class="dm-card" style="display:none">
+  <div class="dm-card__body text-center py-5">
+    <div style="font-size:4rem;margin-bottom:16px" aria-hidden="true">✅</div>
+    <h4 class="fw-bold mb-2">No health alerts</h4>
+    <p class="text-muted mb-0">Your herd is healthy! Alerts will appear here when anomalies are detected.</p>
+  </div>
+</div>
+
+<!-- Alert cards container -->
+<div id="alertsContainer" style="display:none" role="list" aria-label="Health alerts"></div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+(function () {
+  'use strict';
+
+  const SEVERITY_COLOR = { HIGH: 'red', MEDIUM: 'amber', LOW: 'green' };
+  let allAlerts = [];
+  let activeFilter = 'all';
+
+  function severityBadge(sev) {
+    const color = SEVERITY_COLOR[(sev || '').toUpperCase()] || 'gray';
+    return `<span class="dm-badge dm-badge--${color}">${sev || '—'}</span>`;
+  }
+
+  function fmtDate(d) {
+    if (!d) return '—';
+    return new Date(d).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  }
+
+  function renderCard(alert) {
+    const resolvedAttr = alert.is_resolved ? 'data-resolved="true"' : '';
+    const btnHtml = !alert.is_resolved
+      ? `<button class="dm-btn dm-btn--outline dm-btn--sm ack-btn" data-id="${alert.id}" aria-label="Acknowledge alert">
+           <i class="bi bi-check-lg me-1" aria-hidden="true"></i> Acknowledge
+         </button>`
+      : `<span class="dm-badge dm-badge--gray"><i class="bi bi-check-circle me-1"></i>Resolved</span>`;
+
+    return `<div class="dm-card mb-3 alert-card"
+                 data-severity="${(alert.severity || '').toUpperCase()}"
+                 data-resolved="${alert.is_resolved ? 'true' : 'false'}"
+                 role="listitem"
+                 ${resolvedAttr}>
+      <div class="dm-card__body">
+        <div class="d-flex flex-wrap align-items-start gap-3">
+          <div class="flex-grow-1">
+            <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
+              <strong>${alert.cattle_tag || alert.cattle?.tag_number || '—'}</strong>
+              ${severityBadge(alert.severity)}
+              <span class="text-muted" style="font-size:.8rem">${fmtDate(alert.created_at || alert.date)}</span>
+            </div>
+            <p class="mb-0" style="font-size:.9rem">${alert.message || alert.description || '—'}</p>
+          </div>
+          <div class="flex-shrink-0">
+            ${btnHtml}
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  function applyFilter(filter) {
+    activeFilter = filter;
+    const cards = document.querySelectorAll('.alert-card');
+    let visible = 0;
+    cards.forEach(function (card) {
+      const sev      = card.dataset.severity;
+      const resolved = card.dataset.resolved === 'true';
+      let show = false;
+      if (filter === 'all')        show = true;
+      else if (filter === 'unresolved') show = !resolved;
+      else                          show = (sev === filter);
+      card.style.display = show ? '' : 'none';
+      if (show) visible++;
+    });
+
+    // Update button states
+    document.querySelectorAll('.filter-btn').forEach(function (btn) {
+      const isActive = btn.dataset.filter === filter;
+      btn.classList.toggle('dm-btn--primary', isActive);
+      btn.classList.toggle('dm-btn--outline', !isActive);
+    });
+
+    if (visible === 0 && allAlerts.length > 0) {
+      document.getElementById('emptyState').style.display = '';
+      document.getElementById('alertsContainer').style.display = 'none';
+    } else if (visible > 0) {
+      document.getElementById('emptyState').style.display = 'none';
+      document.getElementById('alertsContainer').style.display = '';
+    }
+  }
+
+  function acknowledgeAlert(id) {
+    fetch('/api/alerts/' + id + '/acknowledge/', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        'Accept': 'application/json',
+        'X-CSRFToken': getCsrf(),
+      },
+    })
+    .then(function (res) {
+      if (res.ok) {
+        // Mark the card as resolved in DOM
+        const card = document.querySelector('.alert-card [data-id="' + id + '"]')?.closest('.alert-card');
+        if (card) {
+          card.dataset.resolved = 'true';
+          const btn = card.querySelector('.ack-btn');
+          if (btn) btn.outerHTML = '<span class="dm-badge dm-badge--gray"><i class="bi bi-check-circle me-1"></i>Resolved</span>';
+        }
+        applyFilter(activeFilter);
+      }
+    })
+    .catch(function () { /* silently fail */ });
+  }
+
+  function getCsrf() {
+    const m = document.cookie.match(/csrftoken=([^;]+)/);
+    return m ? m[1] : '';
+  }
+
+  function init() {
+    fetch('/api/alerts/', {
+      credentials: 'same-origin',
+      headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+    })
+    .then(function (res) { return res.ok ? res.json() : null; })
+    .then(function (data) {
+      document.getElementById('loadingState').style.display = 'none';
+      allAlerts = data ? (Array.isArray(data) ? data : (data.results || [])) : [];
+
+      if (allAlerts.length === 0) {
+        document.getElementById('filterBar').style.display = 'none';
+        document.getElementById('emptyState').style.display = '';
+        return;
+      }
+
+      const container = document.getElementById('alertsContainer');
+      container.innerHTML = allAlerts.map(renderCard).join('');
+      container.style.display = '';
+
+      // Ack button delegation
+      container.addEventListener('click', function (e) {
+        const btn = e.target.closest('.ack-btn');
+        if (btn) acknowledgeAlert(btn.dataset.id);
+      });
+
+      // Filter button delegation
+      document.getElementById('filterBar').addEventListener('click', function (e) {
+        const btn = e.target.closest('.filter-btn');
+        if (btn) applyFilter(btn.dataset.filter);
+      });
+    })
+    .catch(function () {
+      document.getElementById('loadingState').style.display = 'none';
+      document.getElementById('emptyState').style.display = '';
+    });
+  }
+
+  init();
+})();
+</script>
 {% endblock %}

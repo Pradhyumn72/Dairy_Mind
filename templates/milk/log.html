@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Log Milk Production — DairyMind{% endblock %}
+{% block page_title %}Log Milk{% endblock %}
+{% block nav_milk %}active{% endblock %}
+
+{% block content %}
+<div class="dm-page-header">
+  <div>
+    <h2 class="dm-page-header__title">🥛 Log Milk Production</h2>
+    <p class="dm-page-header__subtitle">Record today's milk yield for a cattle</p>
+  </div>
+  <a href="/milk/" class="dm-btn dm-btn--outline">
+    <i class="bi bi-arrow-left me-1"></i> Back to Milk Tracker
+  </a>
+</div>
+
+<div class="row justify-content-center">
+  <div class="col-lg-7">
+    <div class="dm-card">
+      <div class="dm-card__header">
+        <span class="dm-card__title">Milk Log Entry</span>
+      </div>
+      <div class="dm-card__body">
+
+        <div id="formError" class="dm-alert dm-alert--danger mb-4" style="display:none" role="alert">
+          <i class="bi bi-exclamation-triangle-fill"></i>
+          <div id="formErrorMsg"></div>
+        </div>
+        <div id="formSuccess" class="dm-alert dm-alert--success mb-4" style="display:none" role="status">
+          <i class="bi bi-check-circle-fill"></i>
+          <div>Milk log saved! <a href="/milk/" class="fw-semibold">View all logs →</a></div>
+        </div>
+
+        <form id="milkLogForm" novalidate>
+          {% csrf_token %}
+
+          <div class="row g-3">
+            <div class="col-sm-6">
+              <label for="cattle_id" class="form-label fw-semibold small">Cattle <span class="text-danger">*</span></label>
+              <select class="form-select" id="cattle_id" name="cattle_id" required>
+                <option value="" disabled selected>Loading cattle…</option>
+              </select>
+              <div class="invalid-feedback">Please select a cattle.</div>
+            </div>
+
+            <div class="col-sm-6">
+              <label for="date" class="form-label fw-semibold small">Date <span class="text-danger">*</span></label>
+              <input type="date" class="form-control" id="date" name="date" required>
+              <div class="invalid-feedback">Date is required.</div>
+            </div>
+
+            <div class="col-sm-6">
+              <label for="morning_litres" class="form-label fw-semibold small">Morning Yield (L) <span class="text-danger">*</span></label>
+              <input type="number" class="form-control" id="morning_litres" name="morning_litres"
+                     placeholder="0.0" required min="0" max="60" step="0.1">
+              <div class="invalid-feedback">Enter a value between 0 and 60.</div>
+            </div>
+
+            <div class="col-sm-6">
+              <label for="evening_litres" class="form-label fw-semibold small">Evening Yield (L) <span class="text-danger">*</span></label>
+              <input type="number" class="form-control" id="evening_litres" name="evening_litres"
+                     placeholder="0.0" required min="0" max="60" step="0.1">
+              <div class="invalid-feedback">Enter a value between 0 and 60.</div>
+            </div>
+
+            <div class="col-12">
+              <div class="p-3 rounded" style="background:var(--dm-gray-50);font-size:.9rem">
+                <strong>Total yield: </strong>
+                <span id="totalPreview" style="color:var(--dm-green-600);font-weight:700">0.0 L</span>
+              </div>
+            </div>
+
+            <div class="col-12">
+              <label for="notes" class="form-label fw-semibold small">Notes</label>
+              <input type="text" class="form-control" id="notes" name="notes"
+                     placeholder="Optional notes" maxlength="500">
+            </div>
+          </div>
+
+          <div class="d-flex gap-3 mt-4">
+            <button type="submit" class="dm-btn dm-btn--primary" id="submitBtn">
+              <i class="bi bi-check-lg me-1"></i> Save Log
+            </button>
+            <a href="/milk/" class="dm-btn dm-btn--outline">Cancel</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+(function(){
+  'use strict';
+
+  /* Set today as default date */
+  const dateInput = document.getElementById('date');
+  dateInput.value = new Date().toISOString().split('T')[0];
+  dateInput.max   = dateInput.value;
+
+  /* Load active cattle into select */
+  fetch('/api/cattle/?is_active=true&page_size=200', { credentials:'same-origin', headers:{'Accept':'application/json'} })
+  .then(r => r.ok ? r.json() : null)
+  .then(data => {
+    const sel     = document.getElementById('cattle_id');
+    const results = data ? (Array.isArray(data) ? data : (data.results || [])) : [];
+    if (results.length === 0) {
+      sel.innerHTML = '<option value="" disabled selected>No active cattle found — add cattle first</option>';
+    } else {
+      sel.innerHTML = '<option value="" disabled selected>Select cattle</option>' +
+        results.map(c => `<option value="${c.id}">${c.tag_number} — ${c.name}</option>`).join('');
+    }
+  });
+
+  /* Live total preview */
+  function updateTotal(){
+    const m = parseFloat(document.getElementById('morning_litres').value) || 0;
+    const e = parseFloat(document.getElementById('evening_litres').value) || 0;
+    document.getElementById('totalPreview').textContent = (m + e).toFixed(1) + ' L';
+  }
+  document.getElementById('morning_litres').addEventListener('input', updateTotal);
+  document.getElementById('evening_litres').addEventListener('input', updateTotal);
+
+  function getCsrf(){ const m = document.cookie.match(/csrftoken=([^;]+)/); return m ? m[1] : ''; }
+
+  document.getElementById('milkLogForm').addEventListener('submit', function(e){
+    e.preventDefault();
+    const form = e.target;
+    const errDiv = document.getElementById('formError');
+    const errMsg = document.getElementById('formErrorMsg');
+    const sucDiv = document.getElementById('formSuccess');
+    const btn    = document.getElementById('submitBtn');
+    errDiv.style.display = 'none';
+    sucDiv.style.display = 'none';
+    if (!form.checkValidity()){ form.classList.add('was-validated'); return; }
+    form.classList.remove('was-validated');
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Saving…';
+
+    fetch('/api/milk/logs/', {
+      method:'POST', credentials:'same-origin',
+      headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRFToken':getCsrf()},
+      body: JSON.stringify({
+        cattle_id:      parseInt(form.cattle_id.value),
+        date:           form.date.value,
+        morning_litres: parseFloat(form.morning_litres.value),
+        evening_litres: parseFloat(form.evening_litres.value),
+        notes:          form.notes.value.trim(),
+      }),
+    })
+    .then(r => r.json().then(d => ({ ok: r.ok, data: d })))
+    .then(res => {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-check-lg me-1"></i> Save Log';
+      if (res.ok){
+        form.reset();
+        dateInput.value = new Date().toISOString().split('T')[0];
+        document.getElementById('totalPreview').textContent = '0.0 L';
+        sucDiv.style.display = '';
+        window.scrollTo({ top:0, behavior:'smooth' });
+      } else {
+        const msgs = [];
+        if (typeof res.data === 'object') Object.entries(res.data).forEach(([k,v]) => msgs.push((k==='non_field_errors'?'':k+': ')+(Array.isArray(v)?v.join(', '):v)));
+        errMsg.innerHTML = msgs.join('<br>') || 'Failed to save. Please try again.';
+        errDiv.style.display = '';
+      }
+    })
+    .catch(() => {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-check-lg me-1"></i> Save Log';
+      errMsg.textContent = 'Connection error. Please try again.';
+      errDiv.style.display = '';
+    });
+  });
+})();
+</script>
+{% endblock %}

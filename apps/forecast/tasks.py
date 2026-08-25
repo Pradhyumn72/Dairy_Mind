@@ -3,12 +3,12 @@ Production Forecast Celery tasks.
 
 regenerate_forecasts
     Schedule : every Monday at 06:00 UTC
-    What     : For every active cattle with ≥ 30 MilkLog records, run
-               MilkProductionForecaster.fit_and_forecast() and persist the
-               results to ProductionForecast, replacing any existing future rows.
+    What     : For every active cattle with ≥ 1 MilkLog record, run
+               MilkProductionForecaster.fit_and_forecast() using the
+               progressive tier logic and persist the results.
 
 generate_single_forecast
-    Triggered : manually via POST /api/forecast/refresh/ (with cattle_id arg)
+    Triggered : manually (with cattle_id arg)
     What      : Same as above but for a single cattle.
 
 generate_all_forecasts
@@ -17,17 +17,47 @@ generate_all_forecasts
 """
 import logging
 from datetime import date
+from decimal import Decimal, ROUND_HALF_UP
 
 from celery import shared_task
 from django.db import transaction
 
 logger = logging.getLogger(__name__)
 
-# Minimum history days required — mirrors the forecaster constant
-MIN_HISTORY_DAYS = 30
+
+def _dec(v: float) -> Decimal:
+    return Decimal(str(v)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 
-# ── regenerate_forecasts (Monday 06:00 UTC) ───────────────────────────────────
+def _persist_forecast(cattle, result, today: date) -> int:
+    """
+    Atomically replace future ProductionForecast rows for *cattle* with the
+    rows in *result.df*.  Returns the number of rows saved.
+    """
+    from apps.forecast.models import ProductionForecast
+
+    rows = [
+        ProductionForecast(
+            cattle=cattle,
+            forecast_date=row["ds"].date(),
+            predicted_litres=_dec(row["yhat"]),
+            confidence_lower=_dec(row["yhat_lower"]),
+            confidence_upper=_dec(row["yhat_upper"]),
+        )
+        for _, row in result.df.iterrows()
+    ]
+
+    with transaction.atomic():
+        ProductionForecast.objects.filter(
+            cattle=cattle,
+            forecast_date__gt=today,
+        ).delete()
+        ProductionForecast.objects.bulk_create(rows)
+
+    return len(rows)
+
+
+# ── regenerate_forecasts ──────────────────────────────────────────────────────
 
 @shared_task(
     bind=True,
@@ -35,115 +65,74 @@ MIN_HISTORY_DAYS = 30
     max_retries=3,
     default_retry_delay=120,
     queue="forecast",
-    soft_time_limit=20 * 60,   # 20 min soft limit (Prophet is slow for large herds)
+    soft_time_limit=20 * 60,
     time_limit=25 * 60,
 )
 def regenerate_forecasts(self):
     """
-    Regenerate 30-day milk production forecasts for all active cattle.
-
-    Algorithm
-    ---------
-    1. Fetch all active Cattle.
-    2. For each cattle, count available MilkLog records.
-    3. Skip cattle with fewer than MIN_HISTORY_DAYS records (logs a warning).
-    4. Fit Prophet on the last 90 days of history and forecast 30 days forward.
-    5. Atomically delete existing future forecast rows and bulk-insert new ones.
-    6. Accumulate per-cattle success/skip/error counts and return a summary dict.
+    Regenerate milk production forecasts for ALL active cattle using the
+    progressive tier system — any cattle with ≥ 1 day of milk logs gets
+    a forecast (Tier 1–4 depending on history length).
 
     Returns
     -------
-    dict
-        {
-            "total_cattle"    : int,
-            "forecasted"      : int,   # new forecasts saved
-            "skipped"         : int,   # insufficient data
-            "errors"          : int,   # per-cattle exceptions caught
-            "run_date"        : "YYYY-MM-DD"
-        }
+    dict  { total_cattle, forecasted, skipped (zero logs), errors, run_date }
     """
     from apps.cattle.models import Cattle
     from apps.forecast.ml.production_forecaster import (
         InsufficientDataError,
         MilkProductionForecaster,
     )
-    from apps.forecast.models import ProductionForecast
     from apps.milk.models import MilkLog
-    from decimal import Decimal, ROUND_HALF_UP
 
-    def _dec(v: float) -> Decimal:
-        return Decimal(str(v)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-
-    today = date.today()
+    today         = date.today()
     active_cattle = list(Cattle.objects.filter(is_active=True))
     forecaster    = MilkProductionForecaster()
 
     logger.info(
-        "[regenerate_forecasts] Starting forecast run for %d active cattle",
+        "[regenerate_forecasts] Starting progressive forecast run for %d active cattle",
         len(active_cattle),
     )
 
     stats = {
         "total_cattle": len(active_cattle),
         "forecasted":   0,
-        "skipped":      0,
+        "skipped":      0,   # zero milk logs
         "errors":       0,
         "run_date":     str(today),
     }
 
     for cattle in active_cattle:
         try:
-            # Quick count guard — avoids expensive Prophet fit for sparse cattle
+            # Fast count — skip only if truly zero logs
             log_count = MilkLog.objects.filter(cattle=cattle).count()
-            if log_count < MIN_HISTORY_DAYS:
-                logger.warning(
-                    "[regenerate_forecasts] Skipping cattle=%s: only %d logs (need %d)",
-                    cattle.tag_number, log_count, MIN_HISTORY_DAYS,
+            if log_count == 0:
+                logger.info(
+                    "[regenerate_forecasts] Skipping cattle=%s — no milk logs yet",
+                    cattle.tag_number,
                 )
                 stats["skipped"] += 1
                 continue
 
-            forecast_df = forecaster.fit_and_forecast(
+            result = forecaster.fit_and_forecast(
                 cattle_id=cattle.pk,
                 days_history=90,
-                forecast_days=30,
             )
 
-            with transaction.atomic():
-                # Replace all future rows for this cattle
-                ProductionForecast.objects.filter(
-                    cattle=cattle,
-                    forecast_date__gt=today,
-                ).delete()
-
-                ProductionForecast.objects.bulk_create([
-                    ProductionForecast(
-                        cattle=cattle,
-                        forecast_date=row["ds"].date(),
-                        predicted_litres=_dec(row["yhat"]),
-                        confidence_lower=_dec(row["yhat_lower"]),
-                        confidence_upper=_dec(row["yhat_upper"]),
-                    )
-                    for _, row in forecast_df.iterrows()
-                ])
+            saved = _persist_forecast(cattle, result, today)
 
             stats["forecasted"] += 1
             logger.info(
-                "[regenerate_forecasts] Forecasted cattle=%s (%d rows)",
-                cattle.tag_number, len(forecast_df),
+                "[regenerate_forecasts] cattle=%s tier=%d confidence=%s rows=%d",
+                cattle.tag_number, result.tier, result.confidence, saved,
             )
 
-        except InsufficientDataError as exc:
-            # Raised when MilkLog count passes the guard but forecaster still
-            # doesn't have enough after filtering to the history window
-            logger.warning(
-                "[regenerate_forecasts] Insufficient data for cattle=%s: %s",
-                cattle.tag_number, exc,
-            )
+        except InsufficientDataError:
+            # fit_and_forecast only raises this for zero logs; the count guard
+            # above should prevent reaching here, but handle it defensively.
             stats["skipped"] += 1
 
         except Exception as exc:
-            # Per-cattle error — log but continue to next cattle
             stats["errors"] += 1
             logger.error(
                 "[regenerate_forecasts] Error for cattle=%s: %s",
@@ -155,7 +144,6 @@ def regenerate_forecasts(self):
         stats["forecasted"], stats["skipped"], stats["errors"],
     )
 
-    # If more than half the herd errored, surface it via retry
     if stats["errors"] > stats["total_cattle"] // 2 and stats["total_cattle"] > 0:
         raise self.retry(
             exc=RuntimeError(
@@ -179,29 +167,24 @@ def regenerate_forecasts(self):
     soft_time_limit=5 * 60,
     time_limit=8 * 60,
 )
-def generate_single_forecast(self, cattle_id: int, forecast_days: int = 30):
+def generate_single_forecast(self, cattle_id: int, forecast_days: int = None):
     """
-    Generate a forecast for a single cattle and persist results.
+    Generate a progressive-tier forecast for a single cattle and persist results.
 
     Parameters
     ----------
     cattle_id     : int — Cattle PK
-    forecast_days : int — number of days to forecast (default 30)
+    forecast_days : int | None — optional horizon override (capped by tier)
 
     Returns
     -------
-    dict  { "cattle_id": int, "rows_saved": int }
+    dict  { cattle_id, rows_saved, tier, confidence }
     """
     from apps.cattle.models import Cattle
     from apps.forecast.ml.production_forecaster import (
         InsufficientDataError,
         MilkProductionForecaster,
     )
-    from apps.forecast.models import ProductionForecast
-    from decimal import Decimal, ROUND_HALF_UP
-
-    def _dec(v: float) -> Decimal:
-        return Decimal(str(v)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
     try:
         cattle = Cattle.objects.get(pk=cattle_id)
@@ -210,40 +193,27 @@ def generate_single_forecast(self, cattle_id: int, forecast_days: int = 30):
         return {"cattle_id": cattle_id, "rows_saved": 0, "error": "Cattle not found"}
 
     try:
-        forecaster  = MilkProductionForecaster()
-        forecast_df = forecaster.fit_and_forecast(
-            cattle_id=cattle_id,
-            days_history=90,
-            forecast_days=forecast_days,
-        )
+        forecaster = MilkProductionForecaster()
+        kwargs     = {"cattle_id": cattle_id, "days_history": 90}
+        if forecast_days is not None:
+            kwargs["forecast_days"] = forecast_days
 
-        today = date.today()
-        with transaction.atomic():
-            ProductionForecast.objects.filter(
-                cattle=cattle, forecast_date__gt=today
-            ).delete()
-
-            ProductionForecast.objects.bulk_create([
-                ProductionForecast(
-                    cattle=cattle,
-                    forecast_date=row["ds"].date(),
-                    predicted_litres=_dec(row["yhat"]),
-                    confidence_lower=_dec(row["yhat_lower"]),
-                    confidence_upper=_dec(row["yhat_upper"]),
-                )
-                for _, row in forecast_df.iterrows()
-            ])
+        result = forecaster.fit_and_forecast(**kwargs)
+        saved  = _persist_forecast(cattle, result, date.today())
 
         logger.info(
-            "[generate_single_forecast] Saved %d rows for cattle_id=%d",
-            len(forecast_df), cattle_id,
+            "[generate_single_forecast] cattle_id=%d tier=%d confidence=%s rows=%d",
+            cattle_id, result.tier, result.confidence, saved,
         )
-        return {"cattle_id": cattle_id, "rows_saved": len(forecast_df)}
+        return {
+            "cattle_id":  cattle_id,
+            "rows_saved": saved,
+            "tier":       result.tier,
+            "confidence": result.confidence,
+        }
 
     except InsufficientDataError as exc:
-        logger.warning(
-            "[generate_single_forecast] %s", exc
-        )
+        logger.warning("[generate_single_forecast] %s", exc)
         return {"cattle_id": cattle_id, "rows_saved": 0, "error": str(exc)}
 
     except Exception as exc:
@@ -268,7 +238,5 @@ def generate_all_forecasts(self):
     Backward-compatible alias for regenerate_forecasts.
     Kept so existing Beat entries pointing at this task name continue to work.
     """
-    logger.info(
-        "[generate_all_forecasts] Delegating to regenerate_forecasts"
-    )
+    logger.info("[generate_all_forecasts] Delegating to regenerate_forecasts")
     return regenerate_forecasts.apply_async().get(timeout=25 * 60)

@@ -12,6 +12,24 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 SECRET_KEY = config("SECRET_KEY")
 ALLOWED_HOSTS = config("ALLOWED_HOSTS", default="localhost,127.0.0.1", cast=Csv())
 
+# ── Silenced system check warnings ───────────────────────────────────────────
+# drf_spectacular serializer inference warnings are informational only
+# Security warnings are handled in production.py
+SILENCED_SYSTEM_CHECKS = [
+    "drf_spectacular.W001",
+    "drf_spectacular.W002",
+]
+
+# ── drf_spectacular schema config ────────────────────────────────────────────
+SPECTACULAR_SETTINGS = {
+    "TITLE": "DairyMind API",
+    "DESCRIPTION": "Smart Dairy Farm Management System REST API",
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    # Suppress serializer guess warnings in schema generation
+    "DISABLE_ERRORS_AND_WARNINGS": True,
+}
+
 # ── Application definition ───────────────────────────────────────────────────
 DJANGO_APPS = [
     "django.contrib.admin",
@@ -269,7 +287,17 @@ LOGGING = {
     "loggers": {
         "django": {
             "handlers": ["console"],
-            "level": "INFO",
+            "level": "WARNING",   # suppress 200 access logs in development
+            "propagate": False,
+        },
+        "django.request": {
+            "handlers": ["console"],
+            "level": "ERROR",     # only log 4xx/5xx, not every GET 200
+            "propagate": False,
+        },
+        "django.server": {
+            "handlers": ["console"],
+            "level": "WARNING",   # suppress runserver access log spam
             "propagate": False,
         },
         "apps": {

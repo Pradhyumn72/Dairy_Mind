@@ -59,6 +59,7 @@ class CattleSerializer(serializers.ModelSerializer):
             "age_years",        # computed
             "gender",
             "weight_kg",
+            "avg_daily_milk_litres",
             "purchase_date",
             "is_active",
             "notes",
@@ -126,6 +127,7 @@ class CattleListSerializer(serializers.ModelSerializer):
             "date_of_birth",
             "age_years",
             "weight_kg",
+            "avg_daily_milk_litres",
             "is_active",
         ]
         read_only_fields = fields

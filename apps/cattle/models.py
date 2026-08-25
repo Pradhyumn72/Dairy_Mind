@@ -22,6 +22,10 @@ class Cattle(models.Model):
     date_of_birth = models.DateField()
     gender = models.CharField(max_length=10, choices=Gender.choices)
     weight_kg = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
+    avg_daily_milk_litres = models.DecimalField(
+        max_digits=6, decimal_places=2, null=True, blank=True,
+        help_text="Expected average daily milk yield in litres"
+    )
     purchase_date = models.DateField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
     notes = models.TextField(max_length=1000, blank=True, default="")
